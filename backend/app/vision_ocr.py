@@ -38,18 +38,24 @@ def grid_masks(image):
 
 
 def detect_lines(image: Image.Image) -> list[tuple]:
-    ink,horizontal,vertical=grid_masks(image)
-    ink=cv2.subtract(ink,cv2.bitwise_or(horizontal,vertical))
+    gray=cv2.cvtColor(np.asarray(image.convert("RGB")),cv2.COLOR_RGB2GRAY)
+    # Global Otsu can turn a colored/gradient document background into "ink".
+    # Use local stroke contrast, then discard large graphics before joining text.
+    side=max(15,min(51,min(image.size)//2*2-1))
+    contrast=cv2.morphologyEx(gray,cv2.MORPH_BLACKHAT,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(side,side)))
+    ink=((gray<150)&(contrast>30)).astype(np.uint8)*255
     # Connect characters into line proposals without inventing coordinates with an LLM.
-    n,_,stats,_=cv2.connectedComponentsWithStats(ink)
-    heights=[s[3] for s in stats[1:] if s[4]>=5 and 4<=s[3]<=image.height/5]
+    n,labels,stats,_=cv2.connectedComponentsWithStats(ink)
+    keep=[i for i,s in enumerate(stats) if i and s[4]>=8 and 4<=s[3]<=max(80,image.height*.12) and s[2]<image.width*.6]
+    ink=np.isin(labels,keep).astype(np.uint8)*255
+    heights=[stats[i][3] for i in keep if stats[i][4]>=40 and stats[i][3]>=8 and stats[i][2]<stats[i][3]*4]
     height=int(np.median(heights)) if heights else 12
-    connected=cv2.dilate(ink,np.ones((max(2,height//3),max(10,height)),np.uint8))
+    connected=cv2.dilate(ink,np.ones((max(2,height//5),max(10,height)),np.uint8))
     contours,_=cv2.findContours(connected,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
     boxes=[]
     for contour in contours:
         x,y,w,h=cv2.boundingRect(contour)
-        if w<10 or h<5 or h>image.height*.35 or w*h<60: continue
+        if w<max(10,h*1.15) or h<max(8,height*.5) or h>image.height*.25 or w*h<60: continue
         x0,y0=max(0,x-3),max(0,y-3)
         boxes.append((x0,y0,min(image.width,x+w+3)-x0,min(image.height,y+h+3)-y0))
     return sorted(boxes,key=lambda box:(box[1],box[0]))

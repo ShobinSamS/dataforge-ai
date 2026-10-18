@@ -14,10 +14,15 @@ In Template editor, immediately after upload, use **Find PII and extract tables*
 4. Review the entire page and save the review before generation. Analysis does not
    modify source pixels, save a template version, or confirm the whole page for you.
 
-Qwen returns only source IDs and semantic categories. Coordinates always come from
+Qwen returns source IDs, semantic categories, a literal evidence quote and a short
+reason. A validator rejects quotes absent from the source, labels without values,
+public organization/promotional text, and identifiers without an actual code or
+number. The review panel prominently shows the extracted value, reason and source
+OCR line, and permits correcting transcription before applying it. Coordinates always come from
 OCR or user-authored crops. It cannot invent locations or execute document text.
-Names, addresses, email, phone, dates, generic document/account IDs, financial,
-medical and other sensitive text are supported categories. This is not restricted
+Names, addresses, email, phone, dates, generic document/account IDs, financial
+and contextual medical values are supported categories. Public organization names
+and untyped "other" model guesses are not automatically selected. This is not restricted
 to one document type. Complete OCR line boxes are used; labels on the same line
 may also be erased. Recognition omissions, false positives, photos, signatures,
 seals and encoded codes still require inspection. A failed model request is
@@ -47,6 +52,11 @@ The [Microsoft handwritten model](https://huggingface.co/microsoft/trocr-small-h
 is a transformer encoder/decoder fine-tuned on IAM. It recognizes single text-line
 crops; it does not locate page text or identify a writer. The
 [printed variant](https://huggingface.co/microsoft/trocr-small-printed) is separate.
+Colored-background line proposals use local contrast and glyph-size checks rather
+than a page-wide brightness threshold. Low-likelihood OCR groups (below 0.5) are
+excluded from automatic PII selection with a warning to inspect those areas. The
+likelihood threshold is not an accuracy guarantee.
+
 OpenCV line proposals are a practical initial detector, not a trained handwriting
 layout model. Joined lines, skew, faint ink, overlaps and ruled grids can defeat it.
 Use corrected single-line boxes. No Indian English handwriting accuracy claim is
@@ -141,3 +151,19 @@ Analysis requests accept `regions`, `ocr_mode` (`existing`, `printed`, `handwrit
 and `engine` (`local_qwen`, `regex`). Regions are validated against canonical page
 dimensions. Existing review and generation endpoints remain the commit boundary.
 The original field-type class order is unchanged, keeping existing YOLO IDs stable.
+
+
+## Value-versus-label regression check
+
+The supplied PAN-services sample was used locally to reproduce over-selection.
+The updated run selected only the displayed identifier and date rectangles, without
+a person-name candidate. Government/department headings, Name labels and
+"PAN CARD APPLY ONLINE" advertising text stayed unselected. No user image was
+added to the repository. TrOCR misread one identifier character (X as Y) even after contrast/binarization
+trials, while reading the displayed date correctly.
+The editable extracted-value field makes this error visible; no guessed character
+correction is silently applied. The date label in the source is incorporation/formation,
+so it must not be described automatically as a birth date.
+
+Extracted-value and reason strings are stripped along with original OCR text before
+a generation job snapshot/export; they remain local review metadata only.

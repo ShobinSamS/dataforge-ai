@@ -2771,6 +2771,18 @@ td small {
   grid-column: 1 / -1;
   overflow-wrap: anywhere;
 }
+.pii-evidence {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+.pii-evidence code {
+  font-size: 15px;
+  background: #f1f5f9;
+  padding: 3px 6px;
+}
+.pii-evidence p {
+  margin: 8px 0;
+}
 .analysis-results td input {
   min-width: 65px;
 }

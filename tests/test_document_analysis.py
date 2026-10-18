@@ -10,6 +10,8 @@ from backend.app.schemas import Region, RuleOptions, GenerationConfig
 from backend.app.render import asset, render_sample, fictional_values
 from backend.app.fonts import cursive_font_id, load_font
 from backend.app.vision_ocr import ruled_cells, detect_lines
+from backend.app.privacy import sanitize_regions
+from backend.app.pii_evidence import checked_value, rule_values
 
 
 def grid():
@@ -36,27 +38,61 @@ def test_grid_geometry_and_line_proposals():
 
 def test_pii_model_uses_only_trusted_source_geometry(monkeypatch):
     records=[Region(id="name",text="Applicant: Arun Kumar",box=[20,30,200,35]),Region(id="head",text="APPLICATION FORM",box=[20,5,250,20])]
-    monkeypatch.setattr(analysis,"qwen_json",lambda *a,**kw:analysis.Findings(findings=[analysis.Finding(source_id="name",category="person")]))
+    monkeypatch.setattr(analysis,"qwen_json",lambda *a,**kw:analysis.Findings(findings=[analysis.Finding(source_id="name",category="person",evidence="Arun Kumar",reason="Applicant name value")]))
     candidates,engine,warnings=analysis.find_pii(records,"local_qwen")
     assert engine=="local_qwen" and len(candidates)==1
     assert candidates[0]["box"]==[20,30,200,35] and candidates[0]["kind"]=="name"
     assert candidates[0]["action"]=="erase" and not candidates[0]["confirmed"]
-    monkeypatch.setattr(analysis,"qwen_json",lambda *a,**kw:analysis.Findings(findings=[analysis.Finding(source_id="invented",category="person")]))
+    monkeypatch.setattr(analysis,"qwen_json",lambda *a,**kw:analysis.Findings(findings=[analysis.Finding(source_id="invented",category="person",evidence="Arun Kumar",reason="Applicant name value")]))
     candidates,engine,warnings=analysis.find_pii(records,"local_qwen")
     assert not candidates and engine=="regex_fallback" and warnings
 
 
 def test_regex_evidence_wins_over_wrong_model_types_and_generic_titles(monkeypatch):
     records=[Region(id="email",text="Email: arun@example.invalid",box=[0,30,200,25]),Region(id="heading",text="APPLICATION FORM",box=[0,0,200,25])]
-    monkeypatch.setattr(analysis,"qwen_json",lambda *a,**kw:analysis.Findings(findings=[analysis.Finding(source_id="email",category="address"),analysis.Finding(source_id="heading",category="other")]))
+    monkeypatch.setattr(analysis,"qwen_json",lambda *a,**kw:analysis.Findings(findings=[analysis.Finding(source_id="email",category="address",evidence="arun@example.invalid",reason="Wrong type returned by model"),analysis.Finding(source_id="heading",category="other",evidence="APPLICATION FORM",reason="Wrong heading returned by model")]))
     candidates,_,_=analysis.find_pii(records,"local_qwen")
     assert len(candidates)==1 and candidates[0]["kind"]=="email"
+
+
+def test_only_actual_identifier_and_date_values_survive_public_text(monkeypatch):
+    texts=["AMOUNT:","ITEM","(RM)","INCOME TAX DEPARTMENT","GOVT. OF INDIA","e - Permanent Account Number Card","ABCDE1234Z","Name:","PAN CARD APPLY ONLINE","Date of Incorporation/Formation","19-04-2001","REFERENCE PURPOSE SAMPLE ONLY"]
+    records=[Region(id=f"r{i}",text=t,box=[20,20+i*45,600,32],origin="ocr",confidence=.95) for i,t in enumerate(texts)]
+    def wrong_model(*args,**kwargs):
+        # Deliberately over-select everything. The validator must reject labels,
+        # public text and invented quotes independently of model behavior.
+        batch=args[1]["records"]
+        return analysis.Findings(findings=[analysis.Finding(source_id=r["id"],category="identifier",evidence=r["text"],reason="Model over-selected") for r in batch])
+    monkeypatch.setattr(analysis,"qwen_json",wrong_model)
+    candidates,engine,_=analysis.find_pii(records,"local_qwen")
+    assert engine=="local_qwen"
+    assert {(r["pii_value"],r["kind"]) for r in candidates}=={("ABCDE1234Z","identifier"),("19-04-2001","date")}
+    assert all(r["pii_reason"] and r["pii_value"] in r["text"] for r in candidates)
+    snapshot=sanitize_regions(candidates)
+    assert all(not r["pii_value"] and not r["pii_reason"] and not r["text"] for r in snapshot)
+    assert not checked_value("Applicant: Arun Kumar","person","Made Up Person")
+    assert not checked_value("PAN CARD APPLY ONLINE","person","PAN CARD APPLY ONLINE","Name")
+    assert not checked_value("GOVT. OF INDIA","organization","GOVT. OF INDIA")
+    assert not rule_values("31/02/2002")
+    noise=Region(id="noise",text="ID: 87412954",box=[0,0,100,20],origin="ocr",confidence=.25)
+    assert not analysis.find_pii([noise],"regex")[0]
+
+
+def test_general_values_are_not_limited_to_one_document_type():
+    for value,text,category,context in [
+        ("AB1234567","Passport number: AB1234567","identifier",""),
+        ("EMP-74219","Employee ID: EMP-74219","identifier",""),
+        ("Arun Kumar","Applicant: Arun Kumar","person",""),
+        ("24 Sample Road","24 Sample Road","address",""),
+        ("arun@example.invalid","Email: arun@example.invalid","email",""),
+    ]:
+        assert checked_value(text,category,value,context)==value
 
 
 def test_analysis_routes_draft_only_tables_and_model_failure(tmp_path,monkeypatch):
     app=create_app(f"sqlite:///{tmp_path/'db.sqlite'}",tmp_path,start_worker=False)
     image=grid();path=tmp_path/"page.png";image.save(path)
-    records=[Region(id="email",text="arun@example.invalid",box=[35,40,170,25],origin="ocr")]
+    records=[Region(id="email",text="arun@example.invalid",box=[35,40,170,25],origin="ocr",confidence=.95)]
     with app.state.sessions.begin() as db:
         db.add(Template(id="fixture",name="fixture",image_path=str(path),width=image.width,height=image.height,regions=[r.model_dump(mode="json") for r in records]))
     body={"regions":[r.model_dump(mode="json") for r in records],"engine":"regex"}

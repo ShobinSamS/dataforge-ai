@@ -41,4 +41,4 @@ def check_review(regions: list[Region], width: int, height: int, privacy_confirm
 
 def sanitize_regions(regions: list[dict]) -> list[dict]:
     # OCR suggestions are also used as display labels; remove both original strings.
-    return [{**r, "text": "", "label":f"{r['kind']} {r['id']}","rule":"","rule_resolved_hash":""} for r in regions]
+    return [{**r, "text": "", "label":f"{r['kind']} {r['id']}","rule":"","rule_resolved_hash":"","pii_value":"","pii_reason":""} for r in regions]

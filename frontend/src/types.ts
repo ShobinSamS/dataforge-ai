@@ -72,6 +72,8 @@ export interface Region {
   source_font_size?: number | null;
   origin?: "manual" | "ocr" | "pii";
   pii_category?: string;
+  pii_value?: string;
+  pii_reason?: string;
 }
 export interface Template {
   id: string;

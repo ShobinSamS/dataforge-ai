@@ -274,6 +274,15 @@ export default function DocumentAnalysis({
             {pii.candidates.length} suggestions from {pii.analyzed_count} text
             groups · {pii.ocr_engine} · {pii.engine}
           </p>
+          <p className="field-hint">
+            {pii.analyzed_count - pii.candidates.length} OCR groups were not
+            selected as PII.
+          </p>
+          <p className="field-hint">
+            Only the sensitive values listed below are proposed for removal.
+            Headings, public organization names, empty labels and advertising
+            text should remain. Check each extracted value against the image.
+          </p>
           <div className="analysis-results">
             {pii.candidates.map((c) => (
               <div key={c.id} className="analysis-candidate">
@@ -330,9 +339,48 @@ export default function DocumentAnalysis({
                     ))}
                   </select>
                 </label>
-                <small>
-                  {c.text} · [{c.box.join(", ")}]
-                </small>
+                <div className="pii-evidence">
+                  <strong>
+                    Extracted value: <code>{c.pii_value || c.text}</code>
+                  </strong>
+                  <label>
+                    Correct extracted value
+                    <input
+                      maxLength={400}
+                      value={c.pii_value || c.text}
+                      onChange={(e) => {
+                        setPii({
+                          ...pii,
+                          candidates: pii.candidates.map((r) =>
+                            r.id === c.id
+                              ? {
+                                  ...r,
+                                  pii_value: e.target.value,
+                                  pii_reason: (
+                                    "User-corrected transcription. " +
+                                    (r.pii_reason || "").replace(
+                                      /^User-corrected transcription\. /,
+                                      "",
+                                    )
+                                  ).slice(0, 500),
+                                }
+                              : r,
+                          ),
+                        });
+                        setVerified(false);
+                      }}
+                    />
+                  </label>
+                  <p>
+                    Why selected:{" "}
+                    {c.pii_reason ||
+                      "Legacy suggestion: rerun analysis to obtain value evidence."}
+                  </p>
+                  <small>
+                    OCR line: {c.text} · Source box: [{c.box.join(", ")}]. The
+                    box covers this OCR line; resize it if it includes a label.
+                  </small>
+                </div>
               </div>
             ))}
           </div>

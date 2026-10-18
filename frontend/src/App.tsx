@@ -804,6 +804,15 @@ export default function App() {
                           templateId={selectedTemplate.id}
                           onChange={updateRegion}
                         />
+                        {field.pii_value && (
+                          <div className="pii-evidence">
+                            <strong>
+                              Extracted sensitive value:{" "}
+                              <code>{field.pii_value}</code>
+                            </strong>
+                            <p>{field.pii_reason}</p>
+                          </div>
+                        )}
                         <label className="check-label">
                           <input
                             type="checkbox"

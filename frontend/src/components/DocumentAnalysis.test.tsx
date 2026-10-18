@@ -30,6 +30,8 @@ const candidate: Region = {
   kind: "name",
   action: "erase",
   origin: "pii",
+  pii_value: "Arun Kumar",
+  pii_reason: "The OCR contains an applicant name value.",
 };
 const template: Template = {
   id: "fixture",
@@ -102,13 +104,28 @@ it("requires explicit apply, preserves OCR coordinates, and carries human verifi
   );
   fireEvent.click(screen.getByText("Find PII and auto-label"));
   await screen.findByText(/1 suggestions from 1/);
+  expect(screen.getByText("Arun Kumar")).toBeTruthy();
+  expect(
+    screen.getByText(/Why selected: The OCR contains an applicant name value/),
+  ).toBeTruthy();
   expect(apply).not.toHaveBeenCalled();
   expect(preview).toHaveBeenLastCalledWith([candidate]);
+  fireEvent.change(screen.getByLabelText("Correct extracted value"), {
+    target: { value: "Arun K. Kumar" },
+  });
+  expect(screen.getByText("Arun K. Kumar")).toBeTruthy();
   fireEvent.click(
     screen.getByLabelText("I checked the selected PII boxes and labels"),
   );
   fireEvent.click(screen.getByText("Apply selected as erase regions"));
-  expect(apply).toHaveBeenLastCalledWith([{ ...candidate, confirmed: true }]);
+  expect(apply).toHaveBeenLastCalledWith([
+    {
+      ...candidate,
+      confirmed: true,
+      pii_value: "Arun K. Kumar",
+      pii_reason: "User-corrected transcription. " + candidate.pii_reason,
+    },
+  ]);
 });
 
 it("exports cell rows including blanks and protects CSV from spreadsheet formulas", () => {

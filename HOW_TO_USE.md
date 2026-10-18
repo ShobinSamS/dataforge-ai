@@ -117,7 +117,10 @@ otherwise draw regions manually. English handwriting and visual identifiers need
 
 **After upload:** Open **Find PII and extract tables** in Template editor. Choose existing
 text or installed TrOCR recognition, then **Find PII and auto-label**. Pink dashed boxes
-preview suggestions. Uncheck mistakes or correct labels/types, optionally confirm the
+preview suggestions. The panel shows the actual **Extracted value**, **Why selected**
+and original OCR line. Headings, empty labels and advertising text are not values.
+Use **Correct extracted value** for transcription errors (OCR may confuse X/Y even
+with a high score). Uncheck mistakes or correct labels/types, optionally confirm the
 selected suggestions, then **Apply selected as erase regions**. Boxes remain editable
 on the canvas; choose Replace if you want synthetic values instead. Source pixels stay
 unchanged until generation. Untouched upload OCR suggestions are replaced; manual edits
