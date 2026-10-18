@@ -1,11 +1,18 @@
-import type { Config } from "../types";
+import type { Config, Template } from "../types";
+import QrCapacity from "./QrCapacity";
 
 export default function DocumentOutputControls({
   config,
   onChange,
+  template,
+  onEditQr,
+  onPreflight,
 }: {
   config: Config;
   onChange: (patch: Partial<Config>) => void;
+  template?: Template;
+  onEditQr?: (id: string) => void;
+  onPreflight?: (state: "checking" | "valid" | "invalid") => void;
 }) {
   return (
     <div className="document-output-controls">
@@ -71,6 +78,14 @@ export default function DocumentOutputControls({
         content has no SYN- prefix or portrait caption; provenance stays in
         dataset metadata.
       </p>
+      {template && (
+        <QrCapacity
+          config={config}
+          template={template}
+          onEdit={onEditQr}
+          onState={onPreflight}
+        />
+      )}
     </div>
   );
 }

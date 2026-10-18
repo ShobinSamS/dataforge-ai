@@ -29,6 +29,7 @@ from .fonts import installed_fonts, load_font, match_font, prepare_typography
 from PIL import Image
 from .portraits import save_portrait, portrait_metadata, fetch_configured_portrait
 from .document_analysis import analysis_router
+from .qr_capacity import qr_preflight, check_qr_capacity
 
 
 class OnlinePortraitRequest(Contract):
@@ -319,6 +320,13 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
             db.add(TemplateVersion(template_id=t.id,revision=t.revision,snapshot=result))
             return result
 
+    @app.post("/api/jobs/preflight")
+    def preflight_job(body: GenerationConfig):
+        with sessions() as db:
+            t=require(db,Template,body.template_id)
+            reviewed_regions=normalize_regions([Region.model_validate(r) for r in t.regions],strict=True)
+            return {**qr_preflight(reviewed_regions,body),"template_revision":t.revision}
+
     @app.post("/api/jobs",status_code=201)
     def generate(body: GenerationConfig):
         if body.count > settings.max_samples:
@@ -329,6 +337,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
             t = require(db,Template,body.template_id)
             reviewed_regions=normalize_regions([Region.model_validate(r) for r in t.regions],strict=True)
             check_review(reviewed_regions,t.width,t.height,t.privacy_confirmed)
+            check_qr_capacity(reviewed_regions,body)
             reviewed_regions=prepare_typography(Path(t.image_path),reviewed_regions)
             check_assets(reviewed_regions)
             if body.qr_required and not any(region_action(r)=="replace" and r.kind=="qr" for r in reviewed_regions):
@@ -370,6 +379,10 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
                 raise HTTPException(409,"Job cannot be resumed in its current state")
             if active_count(db) >= 8:
                 raise HTTPException(429,"Queue full")
+            snapshot_regions=[Region.model_validate(r) for r in j.template_snapshot["regions"]]
+            try:check_qr_capacity(snapshot_regions,GenerationConfig.model_validate(j.config))
+            except ValueError as exc:
+                raise HTTPException(422,f"This job keeps its original QR settings. {exc} Edit the template/settings and create a new job; resuming cannot apply those edits.") from exc
             j.status = "queued"; j.error = ""
             return job_json(j)
 

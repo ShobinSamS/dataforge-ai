@@ -197,6 +197,20 @@ the payload is generated automatically. Use Qwen only when you want a particular
 format. Borderless QR output may need clear
 surrounding space for scanners. Larger payloads require larger QR regions.
 
+**QR size check:** Generation studio shows the effective payload and minimum pixel
+size for every saved QR field before queueing. A per-field **Generated character
+length** overrides the global QR payload setting, even if you lower the global
+value. Use **Edit this QR field** to clear/change that override or enlarge W/H,
+then save the reviewed template. Characters and pixels are different units: with
+uppercase/digit payloads and zero padding, 500 characters require at least
+219 × 219 pixels; a 128 × 122 box supports at most 122 characters under the
+current three-pixels-per-module rule. Other character sets and padding change capacity.
+The app does not silently shorten payloads or expand over neighboring fields.
+
+Failed jobs keep their original template/config snapshot. **Fix QR settings** opens
+their configuration for a corrected new job. Editing a template cannot repair an
+old snapshot through Resume; incompatible QR resumes are rejected before queueing.
+
 **Fonts:** Generation automatically preserves native PDF font hints, or compares
 scanned source glyphs against installed font families and weights. It matches
 source text color, keeps bold faces, and fits the actual glyph bounds rather

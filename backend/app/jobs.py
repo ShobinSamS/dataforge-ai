@@ -12,6 +12,7 @@ from .schemas import GenerationConfig, Region
 from .render import render_sample, optional_regions
 from .resources import CPU_LOCK
 from .validation import validate, yolo_line
+from .qr_capacity import check_qr_capacity
 from .text_jobs import run_text
 
 logger = logging.getLogger("dataforge.jobs")
@@ -67,6 +68,7 @@ class Worker:
                 hashes = set(db.scalars(select(Sample.sha256).where(Sample.job_id == id_)))
                 previous_seconds = job.metrics.get("elapsed_seconds",0)
             regions = [Region.model_validate(r) for r in snapshot["regions"]]
+            check_qr_capacity(regions,config)
             expected = len(optional_regions(snapshot["width"],snapshot["height"],regions,config))
             if expected == 0 and not any(r.action=="erase" for r in regions):
                 raise ValueError("Enable at least one replacement or erase-only region")

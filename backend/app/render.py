@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 from faker import Faker
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
-import qrcode
+from .qr_capacity import qr_code, PIXELS_PER_MODULE
 from .schemas import CLASS_NAMES, GenerationConfig, Region, region_action
 from .portraits import illustration, portrait_metadata
 from .patterns import generate_pattern, SETS
@@ -126,15 +126,14 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
             pixels[holes,3]=0
             layer=Image.fromarray(pixels)
     elif kind == "qr":
-        code = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=4, border=qr_padding)
-        code.add_data(value)
+        code = qr_code(value,qr_padding)
         code.make(fit=True)
         qr = code.make_image(fill_color="black", back_color="white").convert("RGBA")
         if not style or style.code_background=="transparent":
             pixels=np.array(qr);pixels[pixels[:,:,0]>127,3]=0;qr=Image.fromarray(pixels)
         side = min(w,h)
-        if side < len(code.get_matrix()) * 3:
-            raise ValueError(f"QR region too small for this payload: use at least {len(code.get_matrix())*3}x{len(code.get_matrix())*3} pixels or shorten the payload")
+        if side < len(code.get_matrix()) * PIXELS_PER_MODULE:
+            raise ValueError(f"QR region too small for this payload: use at least {len(code.get_matrix())*PIXELS_PER_MODULE}x{len(code.get_matrix())*PIXELS_PER_MODULE} pixels or shorten the payload")
         layer.alpha_composite(qr.resize((side,side), Image.Resampling.NEAREST), ((w-side)//2,(h-side)//2))
         mask = Image.new("L", size)
         ImageDraw.Draw(mask).rectangle(((w-side)//2,(h-side)//2,(w+side)//2-1,(h+side)//2-1),fill=255)

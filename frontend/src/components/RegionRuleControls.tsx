@@ -340,6 +340,14 @@ export default function RegionRuleControls({
                 <option value="lower">Lowercase letters</option>
               </select>
             </label>
+            {field.kind === "qr" && (
+              <p className="field-hint">
+                A field length here overrides the Generation studio QR payload
+                setting. Clear it to use the generation default. Pixel
+                dimensions are separate; check QR size in Generation studio
+                before queueing.
+              </p>
+            )}
             <p className="field-hint">
               Leave the pattern empty to generate random values automatically.
               Length and character set control the value. If a pattern is

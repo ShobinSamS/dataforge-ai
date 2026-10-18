@@ -153,3 +153,22 @@ new jobs. Existing job snapshots and source files stay available to workers,
 resume, samples and exports. The new tombstone table is created automatically
 for existing SQLite/PostgreSQL databases; no existing column changes are needed.
 Job submission and deletion share the queue lock to protect their source dependency.
+
+
+### QR capacity preflight
+
+`POST /api/jobs/preflight` accepts GenerationConfig and inspects the saved template
+without creating a job. It returns `valid`, `errors`, `template_revision`,
+`pixels_per_module` and `qr_regions`. Each QR report includes region ID/dimensions,
+effective payload character count/source (literal, pattern, field length override,
+or generation default), required square pixel size, whether it fits, and the
+maximum automatic character count for that box/current character set/padding.
+It does not return generated payload contents or alter the template.
+
+`POST /api/jobs` enforces the same bound before adding a queue row. Resume checks
+the original snapshot and rejects incompatible QR settings with 422, directing the
+user to create a corrected new job. The worker retains a defensive capacity check.
+The shared QR encoder uses M error correction and a minimum of three pixels per
+module. Template patterns are assessed using a conservative encoding-mode bound;
+random numeric runs may require less space. Actual QR decode validation remains
+necessary after compositing, noise, blur and rotation.

@@ -152,6 +152,9 @@ export default function App() {
     templates.find((t) => t.id === templateId) || templates[0];
   const selectedJob = jobs.find((j) => j.id === jobId) || jobs[0];
   const [analysisPreview, setAnalysisPreview] = useState<Region[]>([]);
+  const [qrPreflightState, setQrPreflightState] = useState<
+    "checking" | "valid" | "invalid"
+  >("checking");
   const [regions, setRegions] = useState<Region[]>([]),
     [selected, setSelected] = useState(""),
     [privacy, setPrivacy] = useState(false),
@@ -263,6 +266,17 @@ export default function App() {
       await post(`/jobs/${job.id}/${action}`);
       await qc.invalidateQueries({ queryKey: ["jobs"] });
     });
+  const fixQrJob = (job: Job) => {
+    if (!templates.some((t) => t.id === job.template_id)) {
+      setError(
+        "This job's template is no longer in the library. Select another template to create a corrected job.",
+      );
+      return;
+    }
+    setTemplateId(job.template_id);
+    setConfig({ ...defaults, ...job.config });
+    go("Generation studio");
+  };
   const download = () =>
     act("Packaging dataset", async () => {
       const result = await post<{ download_url: string; count: number }>(
@@ -1014,6 +1028,12 @@ export default function App() {
                 <div className="section-divider" />
                 <DocumentOutputControls
                   config={config}
+                  template={selectedTemplate}
+                  onPreflight={setQrPreflightState}
+                  onEditQr={(id) => {
+                    go("Template editor");
+                    setSelected(id);
+                  }}
                   onChange={(patch) => setConfig((c) => ({ ...c, ...patch }))}
                 />
                 <div className="section-divider" />
@@ -1063,7 +1083,8 @@ export default function App() {
                   disabled={
                     !!busy ||
                     !selectedTemplate?.privacy_confirmed ||
-                    !config.template_id
+                    !config.template_id ||
+                    (config.qr_codes && qrPreflightState !== "valid")
                   }
                   onClick={run}
                 >
@@ -1212,10 +1233,20 @@ export default function App() {
                               ) && (
                                 <button
                                   className="btn small"
-                                  onClick={() => jobAction(j, "resume")}
+                                  onClick={() =>
+                                    /QR region|QR encoding capacity/.test(
+                                      j.error,
+                                    )
+                                      ? fixQrJob(j)
+                                      : jobAction(j, "resume")
+                                  }
                                 >
                                   <Play size={12} />
-                                  Resume
+                                  {/QR region|QR encoding capacity/.test(
+                                    j.error,
+                                  )
+                                    ? "Fix QR settings"
+                                    : "Resume"}
                                 </button>
                               )}
                               <button
