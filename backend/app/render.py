@@ -14,6 +14,7 @@ from .portraits import illustration, portrait_metadata
 from .patterns import generate_pattern, SETS
 from .fonts import load_font, native_font_id, resolve_font_weight, cursive_font_id
 from .restoration import restore_region
+from .signatures import render_signature
 
 
 def font(size: int, font_id: str = "auto"):
@@ -70,23 +71,9 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
     d = ImageDraw.Draw(layer)
     ink = style.text_color if style else (32, 60, 102, 255)
     if kind == "signature":
-        # Alphabet-based fictional signature, never traced from the source signature.
         from .schemas import RuleOptions
-        signature_style=style or RuleOptions()
-        letters=" ".join(part[0]+"." for part in value.split() if part) if signature_style.signature_style=="initials" else value
-        text_style=signature_style.model_copy(update={"font_id":cursive_font_id() if signature_style.font_id=="auto" else signature_style.font_id,"writing_style":"printed","font_size":signature_style.font_size or max(6,min(120,round(h*.65)))})
-        layer,_=asset("text",size,letters,rng,text_style)
-        d=ImageDraw.Draw(layer)
-        for j in range(2 if signature_style.signature_style=="flourish" else 0):
-            p = [(rng.uniform(.05,.2)*w, rng.uniform(.3,.8)*h),
-                 (rng.uniform(.2,.4)*w, rng.uniform(-.1,1.1)*h),
-                 (rng.uniform(.4,.8)*w, rng.uniform(-.1,1.1)*h),
-                 (rng.uniform(.8,.95)*w, rng.uniform(.3,.7)*h)]
-            pts = []
-            for t in np.linspace(0, 1, 70):
-                pts.append(tuple((1-t)**3*p[0][k]+3*(1-t)**2*t*p[1][k]+3*(1-t)*t*t*p[2][k]+t**3*p[3][k] for k in [0,1]))
-            d.line(pts, fill=ink, width=max(1, h//30))
-        d.line((w*.08, h*.86, w*.9, h*.77), fill=ink, width=max(1, h//40))
+        layer,mask,_=render_signature(size,value,rng,style or RuleOptions())
+        return layer,mask
     elif kind == "seal":
         from .schemas import RuleOptions
         seal_style=style or RuleOptions()
@@ -187,6 +174,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
     rendered = []
     asset_provenance={}
     typography={}
+    signature_details={}
     for r in enabled:
         x,y,w,h = r.box
         if r.kind=="portrait":
@@ -203,12 +191,16 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
             mask=Image.new("L",(w,h),255)
         else:
             style=r.rule_options.model_copy(deep=True)
-            if style.font_id=="auto" and style.writing_style=="cursive": style.font_id=cursive_font_id()
-            if style.font_id=="auto" and r.source_font: style.font_id=native_font_id(r.source_font)
-            style.font_id=resolve_font_weight(style.font_id,style.font_weight)
-            if style.font_size is None and r.source_font_size: style.font_size=max(6,min(200,round(r.source_font_size)))
+            if r.kind!="signature" and style.font_id=="auto" and style.writing_style=="cursive": style.font_id=cursive_font_id()
+            if r.kind!="signature" and style.font_id=="auto" and r.source_font: style.font_id=native_font_id(r.source_font)
+            if r.kind!="signature":style.font_id=resolve_font_weight(style.font_id,style.font_weight)
+            if r.kind!="signature" and style.font_size is None and r.source_font_size: style.font_size=max(6,min(200,round(r.source_font_size)))
             typography[r.id]={"font_id":style.font_id,"preferred_size":style.font_size,"text_color":style.text_color}
-            layer, mask = asset(r.kind, (w,h), values[r.id], rng,style,config.qr_padding)
+            if r.kind=="signature":
+                layer,mask,signature_details[r.id]=render_signature((w,h),values[r.id],rng,style)
+                values[r.id]=signature_details[r.id]["text"]
+            else:
+                layer, mask = asset(r.kind, (w,h), values[r.id], rng,style,config.qr_padding)
         image.paste(layer, (x,y), layer)
         local_path = dest/f"local_{r.id}.png"
         mask.save(local_path)
@@ -250,6 +242,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
             "bbox":[x0,y0,x1-x0,y1-y0],"text": values[r.id],"mask":mask_name,
             "provenance":"procedural-mask","visibility":round(min(1,visible),4)})
         annotations[-1]["synthetic"]=True
+        if r.id in signature_details:annotations[-1]["signature"]=signature_details[r.id]
         if r.kind not in {"portrait","signature","seal","qr","barcode"}:
             annotations[-1]["typography"]=typography[r.id]
         if r.id in asset_provenance: annotations[-1]["asset_provenance"]=asset_provenance[r.id]

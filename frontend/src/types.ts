@@ -46,7 +46,16 @@ export interface RuleOptions {
   cleanup_mode?: "full_region" | "ink_only";
   writing_style?: "printed" | "cursive";
   code_background?: "transparent" | "white";
-  signature_style?: "name" | "initials" | "flourish";
+  signature_style?:
+    | "mixed"
+    | "name"
+    | "first_name"
+    | "single_letter"
+    | "two_letters"
+    | "initials"
+    | "letter_wave"
+    | "monogram"
+    | "flourish";
   seal_style?: "random" | "ring" | "round" | "rectangle" | "text";
   seal_color?: "random" | "red" | "blue" | "green" | "mixed";
   seal_text?: string;

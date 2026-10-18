@@ -274,7 +274,15 @@ variation can trigger duplicate rejection; start with one sample or add augmenta
 **Asset placement:** Asset switches draw only inside matching reviewed regions;
 they do not place objects automatically. Disabling an asset still erases a region
 selected for replacement. In **Rendering style and cleanup**, signatures can use a
-fictional cursive name, initials, or a name with overlaid flourishes. Seals support
+**Mixed signature styles per sample** (the new default), or a specific full name,
+first name, one letter, two letters, dotted initials, letter–wave–letter form,
+overlapping monogram, or name with a connected finish. Plain lettering styles have
+no mandatory underline or decoration. Finishing curves begin/end on actual letter
+ink; they are not independent scribbles. Mixed mode varies script fonts when more
+than one is installed, uses the dataset seed, and includes undecorated samples.
+Existing fields that explicitly saved the old name/flourish style keep that selection;
+choose Mixed to obtain all families. Signature annotation text records the actual
+visible letters rather than always storing the full generated name. Seals support
 ring/round/rectangle/text shapes, red/blue/green/mixed ink, editable text and ink wear.
 Original seals are removed first using the selected full-region cleanup.
 Choose **English cursive font** for synthetic handwriting; installed script fonts are

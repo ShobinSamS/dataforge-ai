@@ -130,9 +130,18 @@ as experimental rather than claiming arbitrary handwritten-table accuracy.
   zero by default; payloads can reach 500 characters without patterns or an LLM.
   Dark/textured backgrounds may fail QR decoding; generation validation reports
   unreadable QR codes. Barcode decoding is not implemented.
-- Signatures render a seeded fictional person's name or initials in a script font,
-  optionally adding overlaid curves and an underline. A literal rule can provide
-  fictional signing text. Source signatures are never traced.
+- Signatures default to mixed seeded forms: full name, first name, one letter,
+  two letters, dotted initials, letter–wave–letter, overlapping monogram and a
+  name with a connected finish. Explicit lettering-only styles have no underline
+  or added flourish. Waves connect glyphs; finishing curves are anchored to actual
+  glyph ink with smooth joins instead of disconnected random scribbles. Pen width
+  follows the lettering, with small seeded slant/font variations. Available system
+  script fonts determine the look; this remains a font/procedural approximation,
+  not a learned handwriting generator. A literal rule provides the signing text,
+  which can be abbreviated by the selected style. Exported signature metadata
+  identifies the style/font and records the visible letters in the text label.
+  Existing saved style selections remain valid; select Mixed to vary all forms.
+  Source signatures are never traced.
 - Seals support randomized or fixed ring, round, rectangle and text styles,
   red/blue/green/mixed ink, configurable main/inner text and seeded wear. Ring text
   follows an oval. The old seal is removed first by full-region cleanup; it is not

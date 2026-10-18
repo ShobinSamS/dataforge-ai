@@ -86,7 +86,7 @@ export default function AssetStyleControls({
           <label>
             Signature style
             <select
-              value={options.signature_style || "flourish"}
+              value={options.signature_style || "mixed"}
               onChange={(e) =>
                 set({
                   signature_style: e.target
@@ -94,15 +94,27 @@ export default function AssetStyleControls({
                 })
               }
             >
-              <option value="name">Fictional name in cursive</option>
-              <option value="initials">Fictional initials</option>
-              <option value="flourish">Name with overlaid flourishes</option>
+              <option value="mixed">Mixed signature styles per sample</option>
+              <option value="name">Full name · no flourish</option>
+              <option value="first_name">First name · no flourish</option>
+              <option value="single_letter">One letter · no flourish</option>
+              <option value="two_letters">Two letters · no flourish</option>
+              <option value="initials">Dotted initials · no flourish</option>
+              <option value="letter_wave">Letters → small wave → letter</option>
+              <option value="monogram">
+                Overlapping letters with a connected finish
+              </option>
+              <option value="flourish">
+                Name with a connected pen flourish
+              </option>
             </select>
           </label>
           <p className="field-hint">
-            Uses the generated person's name and installed script fonts; does
-            not copy a source signature. A literal replacement can supply
-            fictional signing text.
+            Mixed mode varies letter count, script font and connected
+            decoration. Some samples contain only lettering. Waves and finishing
+            curves join the letters instead of adding independent scribbles. A
+            literal rule supplies fictional signing text; the selected style may
+            abbreviate it.
           </p>
         </>
       )}

@@ -997,7 +997,7 @@ export default function App() {
                       [
                         "signatures",
                         "Fictional signatures",
-                        "Random Bézier strokes",
+                        "Lettering and connected pen designs",
                       ],
                       ["seals", "Fictional seals", "Clearly marked SAMPLE"],
                       ["qr_codes", "QR codes", "Synthetic record payload"],
