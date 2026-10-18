@@ -1,0 +1,91 @@
+{
+  "dataset": "Fictional classification examples",
+  "version": "4d5a045f298348a4902f21ee08ffe330",
+  "config": {
+    "name": "Fictional classification examples",
+    "task": "classification",
+    "backend": "procedural",
+    "count": 15,
+    "seed": 119,
+    "languages": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "hi"
+    ],
+    "labels": [
+      "positive",
+      "negative",
+      "neutral"
+    ],
+    "topic": "customer service",
+    "batch_size": 4,
+    "max_retries": 2,
+    "augmentations": [
+      "whitespace"
+    ],
+    "class_templates": {},
+    "qa_answer_bank": {},
+    "qa_answer_hint": "fictional score expressed in points",
+    "instructions_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "source_hashes": []
+  },
+  "metrics": {
+    "elapsed_seconds": 0.2,
+    "peak_process_rss_mb": 89.7,
+    "worker_count": 1,
+    "model_inference": false,
+    "model": null,
+    "model_digest": null,
+    "quantization": null,
+    "rss_scope": "API process sampled at record boundaries; excludes Ollama process memory"
+  },
+  "generator_version": "text-v1",
+  "runtime": {
+    "python": "3.12.10",
+    "faker": "40.43.0"
+  },
+  "offset_unit": "Unicode code points; end-exclusive, not UTF-16 units or bytes",
+  "csv_json_encoded_columns": [
+    "answer",
+    "augmentation",
+    "context",
+    "entities",
+    "instruction",
+    "label",
+    "messages",
+    "provenance",
+    "question",
+    "response",
+    "text",
+    "tokens",
+    "validation"
+  ],
+  "training_ready": false,
+  "reproducibility": "Procedural: seed + config + runtime. Ollama: saved records are immutable; fresh inference may vary across runtimes.",
+  "validation": {
+    "requested": 15,
+    "total": 15,
+    "accepted": 15,
+    "rejected": 0,
+    "labels": {
+      "positive": 5,
+      "negative": 5,
+      "neutral": 5
+    },
+    "languages": {
+      "en": 3,
+      "es": 3,
+      "fr": 3,
+      "de": 3,
+      "hi": 3
+    },
+    "errors": {},
+    "training_ready": false,
+    "warnings": [
+      "Human review required for semantics, class meaning, language and remaining PII",
+      "No statistical fidelity or utility claim"
+    ]
+  }
+}

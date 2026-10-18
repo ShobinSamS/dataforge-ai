@@ -1,0 +1,137 @@
+{
+  "model": {
+    "reachable": true,
+    "model": "qwen3:1.7b",
+    "installed": true,
+    "models": [
+      "qwen3:1.7b"
+    ],
+    "digest": "8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7",
+    "quantization": "Q4_K_M",
+    "download_on_demand": false
+  },
+  "live_runs": [
+    {
+      "task": "classification",
+      "accepted": 3,
+      "languages": {
+        "en": 3
+      },
+      "metrics": {
+        "elapsed_seconds": 29.16,
+        "peak_process_rss_mb": 93.9,
+        "worker_count": 1,
+        "model_inference": true,
+        "model": "qwen3:1.7b",
+        "model_digest": "8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7",
+        "quantization": "Q4_K_M",
+        "rss_scope": "API process sampled at record boundaries; excludes Ollama process memory"
+      }
+    },
+    {
+      "task": "ner",
+      "accepted": 1,
+      "languages": {
+        "hi": 1
+      },
+      "metrics": {
+        "elapsed_seconds": 13.08,
+        "peak_process_rss_mb": 97.6,
+        "worker_count": 1,
+        "model_inference": true,
+        "model": "qwen3:1.7b",
+        "rss_scope": "API process sampled at record boundaries; excludes Ollama process memory"
+      }
+    },
+    {
+      "task": "qa",
+      "accepted": 3,
+      "languages": {
+        "en": 3
+      },
+      "metrics": {
+        "elapsed_seconds": 28.62,
+        "peak_process_rss_mb": 94.0,
+        "worker_count": 1,
+        "model_inference": true,
+        "model": "qwen3:1.7b",
+        "model_digest": "8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7",
+        "quantization": "Q4_K_M",
+        "rss_scope": "API process sampled at record boundaries; excludes Ollama process memory"
+      }
+    },
+    {
+      "task": "instruction",
+      "accepted": 1,
+      "languages": {
+        "en": 1
+      },
+      "metrics": {
+        "elapsed_seconds": 16.34,
+        "peak_process_rss_mb": 97.7,
+        "worker_count": 1,
+        "model_inference": true,
+        "model": "qwen3:1.7b",
+        "rss_scope": "API process sampled at record boundaries; excludes Ollama process memory"
+      }
+    },
+    {
+      "task": "conversation",
+      "accepted": 1,
+      "languages": {
+        "en": 1
+      },
+      "metrics": {
+        "elapsed_seconds": 19.9,
+        "peak_process_rss_mb": 97.8,
+        "worker_count": 1,
+        "model_inference": true,
+        "model": "qwen3:1.7b",
+        "rss_scope": "API process sampled at record boundaries; excludes Ollama process memory"
+      }
+    },
+    {
+      "task": "augmentation",
+      "accepted": 1,
+      "languages": {
+        "en": 1
+      },
+      "metrics": {
+        "elapsed_seconds": 16.36,
+        "peak_process_rss_mb": 97.8,
+        "worker_count": 1,
+        "model_inference": true,
+        "model": "qwen3:1.7b",
+        "rss_scope": "API process sampled at record boundaries; excludes Ollama process memory"
+      }
+    }
+  ],
+  "live_record_count": 10,
+  "scope": "Actual local Qwen output from several verification runs; structural checks only. Live coverage: English and Hindi, not every task/language combination. Fresh model inference is not guaranteed byte-identical.",
+  "procedural_pack": {
+    "tasks": 6,
+    "records_per_task": 15,
+    "languages": [
+      "en",
+      "es",
+      "fr",
+      "de",
+      "hi"
+    ],
+    "formats": [
+      "csv",
+      "json",
+      "jsonl"
+    ]
+  },
+  "training_ready": false,
+  "verification": {
+    "date": "2026-10-18",
+    "backend": "28 passed; includes original 100-document regression",
+    "backend_suite_seconds": 73.94,
+    "frontend_components": "4 passed",
+    "production_build": "TypeScript + Vite passed",
+    "browser_visual_qa": "Not performed; component tests and build were used. Prior browser tool policy denial was not bypassed.",
+    "training_ready": false
+  }
+}

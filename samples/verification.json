@@ -1,0 +1,20 @@
+{
+  "platform": "Windows-11-10.0.26200-SP0",
+  "processor": "Intel64 Family 6 Model 142 Stepping 11, GenuineIntel",
+  "python": "3.12.10",
+  "scope": "Procedural generation measured on this execution host under current load; no model inference. RSS sampled after each sample can miss transient allocation peaks and excludes other system processes.",
+  "samples": 100,
+  "accepted": 100,
+  "seed": 917,
+  "metrics": {
+    "elapsed_seconds": 111.5,
+    "peak_process_rss_mb": 120.7,
+    "worker_count": 1,
+    "model_inference": false
+  },
+  "test_suite": "10 passed; 1 upstream TestClient deprecation warning",
+  "suite_seconds": 160.92,
+  "frontend": "TypeScript + Vite production build passed",
+  "windows_scripts": "PowerShell parser checks passed",
+  "browser_qa": "Not completed: browser automation URL policy denied observation; no workaround attempted."
+}
