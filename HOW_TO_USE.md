@@ -112,8 +112,23 @@ DataForge does not install/start Ollama or download model weights automatically.
 **Upload support:** PDF, PNG, JPG/JPEG and single-frame TIFF; one page/frame,
 up to 20 MB and 16 megapixels for images. Split multi-page PDFs first. Native
 PDF text extraction works without OCR. Raster text detection needs installed
-local PaddleOCR/Tesseract; otherwise draw regions manually. Handwriting and
-visual identifiers need manual review.
+local PaddleOCR/Tesseract, or the optional TrOCR models in the new analysis panel;
+otherwise draw regions manually. English handwriting and visual identifiers need manual review.
+
+**After upload:** Open **Find PII and extract tables** in Template editor. Choose existing
+text or installed TrOCR recognition, then **Find PII and auto-label**. Pink dashed boxes
+preview suggestions. Uncheck mistakes or correct labels/types, optionally confirm the
+selected suggestions, then **Apply selected as erase regions**. Boxes remain editable
+on the canvas; choose Replace if you want synthetic values instead. Source pixels stay
+unchanged until generation. Untouched upload OCR suggestions are replaced; manual edits
+are preserved and overlapping suggestions are skipped. Review the full page and save.
+
+**Tables / handwriting:** **Extract ruled table** finds enclosed cells. Select English
+handwriting for one handwritten line per cell. Correct transcription/rows/columns,
+optionally **Structure cells with local Qwen**, then export CSV/JSON. Qwen rearranges
+source IDs and never fills missing text. Borderless tables, merged cells and multi-line
+cells need manual handling. Model setup, limits and trial results are in
+[Document analysis](docs/document-analysis.md).
 
 **Prompt rules:** Select a region, enter a **Rule prompt**, then click **Apply rule**.
 Common instructions are interpreted immediately. Other prompts use the installed
@@ -186,8 +201,10 @@ to correct a match. Images with textured
 backgrounds or unavailable fonts can only be approximated. Replacement text is
 shrunk only when its rendered glyphs exceed the region. Font matching stays local.
 
-**Text background:** The default **Restore original background** removes detected
-old lettering with local inpainting and draws new glyphs on a transparent layer.
+**Text background:** The default **Restore entire selected region** removes all selected
+source pixels with local inpainting and draws new glyphs on a transparent layer.
+**Remove detected ink only** is an optional texture-preserving mode that may leave
+faint text; inspect carefully. Include complete source strokes inside the box.
 It preserves surrounding color/texture instead of inserting a flat blue rectangle.
 For a plain form, **Solid background color** lets you explicitly choose white or
 another color. Inpainting estimates hidden pixels; textured regions and faint
@@ -232,7 +249,14 @@ variation can trigger duplicate rejection; start with one sample or add augmenta
 
 **Asset placement:** Asset switches draw only inside matching reviewed regions;
 they do not place objects automatically. Disabling an asset still erases a region
-selected for replacement. Signatures are random curves; seals say FICTIONAL/SAMPLE.
+selected for replacement. In **Rendering style and cleanup**, signatures can use a
+fictional cursive name, initials, or a name with overlaid flourishes. Seals support
+ring/round/rectangle/text shapes, red/blue/green/mixed ink, editable text and ink wear.
+Original seals are removed first using the selected full-region cleanup.
+Choose **English cursive font** for synthetic handwriting; installed script fonts are
+used without tracing a writer. QR and barcode light backgrounds are transparent by
+default; white remains optional. Code masks cover the full logical rectangle. Dark
+or textured templates can make transparent codes unreadable.
 
 Do not delete a sensitive box merely to bypass its review. Source content outside
 selected replacement regions remains in the result. To correct generated boxes,

@@ -81,6 +81,9 @@ All generated images are streamed to disk; the UI paginates samples.
 - Single-page PDF/PNG/JPEG/TIFF upload, decoder checks and 20 MB / 16 MP limits.
 - Native PDF text extraction, lazy optional PaddleOCR 3.x and Tesseract fallback;
   confidence, conservative regex field suggestions and explicit manual fallback.
+- OCR + local Qwen PII suggestions with editable, auto-labeled erase regions; optional
+  offline TrOCR-Small English line OCR and ruled-table cell extraction/CSV/JSON.
+  See [document analysis and rendering](docs/document-analysis.md) for setup and limits.
 - Konva region editor: draw, move, resize, zoom, pan; types/rules; review versions.
 - Prompt-to-plan rules via deterministic aliases/local Qwen; explicit erase-only
   actions, configurable date formats/bounds and generic custom code patterns.
@@ -117,7 +120,7 @@ need manual correction on textures or faint text. Confirm entire-page content an
 Automated validation does not establish training readiness or statistical utility.
 Faker names can coincide with real names.
 
-Presidio, TrOCR, advanced layout/table/signature detection, neural restoration,
+Presidio, general layout/borderless-table/signature detection, neural restoration,
 sample annotation editing, LangGraph, FAISS/RAG, MCP server, tabular synthesis,
 AI image ingestion and diffusion are **not implemented**.
 Their navigation pages state this explicitly. No agent/model activity is faked.

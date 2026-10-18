@@ -12,7 +12,7 @@ import qrcode
 from .schemas import CLASS_NAMES, GenerationConfig, Region, region_action
 from .portraits import illustration, portrait_metadata
 from .patterns import generate_pattern, SETS
-from .fonts import load_font, native_font_id, resolve_font_weight
+from .fonts import load_font, native_font_id, resolve_font_weight, cursive_font_id
 from .restoration import restore_region
 
 
@@ -32,7 +32,10 @@ def fictional_values(regions: list[Region], seed: int, config: GenerationConfig 
               "identifier": f"{seed:010d}", "text": f"Fictional record {seed % 1000000:06d}"}
     result = {}
     for region in regions:
-        if region.rule_options.literal_text is not None:
+        if region.kind=="seal":
+            main=region.rule_options.literal_text or (region.rule[8:] if region.rule.startswith("literal:") else region.rule_options.seal_text)
+            result[region.id]=main+" / "+region.rule_options.seal_subtext
+        elif region.rule_options.literal_text is not None:
             result[region.id]=region.rule_options.literal_text
         elif region.rule.startswith("literal:"):
             result[region.id] = region.rule[8:]
@@ -54,8 +57,8 @@ def fictional_values(regions: list[Region], seed: int, config: GenerationConfig 
             value=date.fromordinal(date_rng.randint(options.date_start.toordinal(),options.date_end.toordinal()))
             formats={"yyyy-mm-dd":"%Y-%m-%d","dd/mm/yyyy":"%d/%m/%Y","mm/dd/yyyy":"%m/%d/%Y","dd-mm-yyyy":"%d-%m-%Y","yyyy/mm/dd":"%Y/%m/%d"}
             result[region.id]=value.strftime(formats[options.date_format])
-        elif region.kind in {"signature", "seal", "qr", "barcode"}:
-            result[region.id] = f"{seed:010d}"
+        elif region.kind=="signature":
+            result[region.id] = shared["name"]
         else:
             result[region.id] = shared[region.kind.value]
     return result
@@ -67,8 +70,14 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
     d = ImageDraw.Draw(layer)
     ink = style.text_color if style else (32, 60, 102, 255)
     if kind == "signature":
-        # Random cubic Bezier strokes, never fitted to an uploaded person's signature.
-        for j in range(4):
+        # Alphabet-based fictional signature, never traced from the source signature.
+        from .schemas import RuleOptions
+        signature_style=style or RuleOptions()
+        letters=" ".join(part[0]+"." for part in value.split() if part) if signature_style.signature_style=="initials" else value
+        text_style=signature_style.model_copy(update={"font_id":cursive_font_id() if signature_style.font_id=="auto" else signature_style.font_id,"writing_style":"printed","font_size":signature_style.font_size or max(6,min(120,round(h*.65)))})
+        layer,_=asset("text",size,letters,rng,text_style)
+        d=ImageDraw.Draw(layer)
+        for j in range(2 if signature_style.signature_style=="flourish" else 0):
             p = [(rng.uniform(.05,.2)*w, rng.uniform(.3,.8)*h),
                  (rng.uniform(.2,.4)*w, rng.uniform(-.1,1.1)*h),
                  (rng.uniform(.4,.8)*w, rng.uniform(-.1,1.1)*h),
@@ -79,17 +88,50 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
             d.line(pts, fill=ink, width=max(1, h//30))
         d.line((w*.08, h*.86, w*.9, h*.77), fill=ink, width=max(1, h//40))
     elif kind == "seal":
-        ink = (153, 64, 72, 220)
-        d.ellipse((3,3,w-4,h-4), outline=ink, width=max(1,min(w,h)//30))
-        d.ellipse((8,8,w-9,h-9), outline=ink, width=1)
-        for txt, yy in [("FICTIONAL", .31), ("SAMPLE", .53)]:
-            f = font(max(7, min(w//10,h//8)))
-            d.text((w/2, h*yy), txt, font=f, fill=ink, anchor="mm")
+        from .schemas import RuleOptions
+        seal_style=style or RuleOptions()
+        palette={"red":(162,35,46,215),"blue":(27,62,153,215),"green":(20,112,68,215)}
+        color=seal_style.seal_color
+        if color in {"random","mixed"}: color=rng.choice(list(palette))
+        ink=palette[color]
+        shape=seal_style.seal_style
+        if shape=="random": shape=rng.choice(["ring","round","rectangle","text"])
+        stroke=max(1,min(w,h)//35)
+        if shape in {"ring","round"}:
+            d.ellipse((2,2,w-3,h-3),outline=ink,width=stroke)
+            if shape=="ring": d.ellipse((7,7,w-8,h-8),outline=ink,width=stroke)
+        elif shape=="rectangle": d.rectangle((2,2,w-3,h-3),outline=ink,width=stroke)
+        texts=value.split(" / ",1) if " / " in value else (seal_style.seal_text,seal_style.seal_subtext)
+        placements=[(texts[1],.53)] if shape=="ring" else list(zip(texts,(.37,.62)))
+        for txt, yy in placements:
+            text_style=seal_style.model_copy(update={"text_color":"#%02x%02x%02x"%ink[:3],"font_size":None,"writing_style":"printed"})
+            if seal_style.seal_color=="mixed":
+                other=palette[rng.choice(list(palette))]
+                text_style.text_color="#%02x%02x%02x"%other[:3]
+            strip,_=asset("text",(max(8,w-16),max(8,int(h*.22))),txt,rng,text_style)
+            layer.alpha_composite(strip,(8,int(h*yy-strip.height/2)))
+        if shape=="ring":
+            # Outer text follows the oval; center text remains readable on small seals.
+            text=texts[0][:40]
+            for index,char in enumerate(text):
+                angle=205+130*index/max(1,len(text)-1)
+                radians=math.radians(angle)
+                tile=Image.new("RGBA",(max(12,h//5),max(12,h//5)))
+                ImageDraw.Draw(tile).text((tile.width/2,tile.height/2),char,font=font(max(6,min(w,h)//11)),fill=ink,anchor="mm")
+                tile=tile.rotate(270-angle,resample=Image.Resampling.BICUBIC,expand=True)
+                layer.alpha_composite(tile,(round(w/2+math.cos(radians)*w*.38-tile.width/2),round(h/2+math.sin(radians)*h*.38-tile.height/2)))
+        if seal_style.seal_wear:
+            pixels=np.array(layer)
+            holes=np.random.default_rng(rng.randrange(2**31)).random((h,w))<seal_style.seal_wear
+            pixels[holes,3]=0
+            layer=Image.fromarray(pixels)
     elif kind == "qr":
         code = qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=4, border=qr_padding)
         code.add_data(value)
         code.make(fit=True)
         qr = code.make_image(fill_color="black", back_color="white").convert("RGBA")
+        if not style or style.code_background=="transparent":
+            pixels=np.array(qr);pixels[pixels[:,:,0]>127,3]=0;qr=Image.fromarray(pixels)
         side = min(w,h)
         if side < len(code.get_matrix()) * 3:
             raise ValueError(f"QR region too small for this payload: use at least {len(code.get_matrix())*3}x{len(code.get_matrix())*3} pixels or shorten the payload")
@@ -104,11 +146,14 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
         Code128(value, writer=ImageWriter()).write(buffer, {"write_text": False, "module_height": 12, "quiet_zone": 3})
         with Image.open(buffer) as barcode:
             layer = barcode.convert("RGBA").resize(size, Image.Resampling.NEAREST)
+        if not style or style.code_background=="transparent":
+            pixels=np.array(layer);pixels[pixels[:,:,0]>127,3]=0;layer=Image.fromarray(pixels)
         return layer, Image.new("L", size, 255)
     else:
         f = None
         for size_px in range(style.font_size if style and style.font_size else min(200,max(64,h*2)), 5, -1):
-            f = font(size_px,resolve_font_weight(style.font_id,style.font_weight) if style else "auto")
+            face=cursive_font_id() if style and style.writing_style=="cursive" and style.font_id=="auto" else style.font_id if style else "auto"
+            f = font(size_px,resolve_font_weight(face,style.font_weight) if style else "auto")
             box = d.textbbox((0,0), value, font=f)
             if box[2]-box[0] <= w-6 and box[3]-box[1] <= h-6:
                 break
@@ -134,7 +179,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
     width, height = image.size
     for r in regions:
         if r.replace:
-            restore_region(image,r.box,glyphs_only=region_action(r)=="replace" and r.kind not in {"signature","seal","qr","barcode","portrait"},mode=r.rule_options.background_mode,color=r.rule_options.background_color)
+            restore_region(image,r.box,glyphs_only=r.rule_options.cleanup_mode=="ink_only" and region_action(r)=="replace" and r.kind not in {"signature","seal","qr","barcode","portrait"},mode=r.rule_options.background_mode,color=r.rule_options.background_color)
     enabled = optional_regions(width,height,regions,config)
     values = fictional_values(enabled, seed,config)
     # Build/transforms one mask at a time; do not retain full-page masks per region.
@@ -159,6 +204,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
             mask=Image.new("L",(w,h),255)
         else:
             style=r.rule_options.model_copy(deep=True)
+            if style.font_id=="auto" and style.writing_style=="cursive": style.font_id=cursive_font_id()
             if style.font_id=="auto" and r.source_font: style.font_id=native_font_id(r.source_font)
             style.font_id=resolve_font_weight(style.font_id,style.font_weight)
             if style.font_size is None and r.source_font_size: style.font_size=max(6,min(200,round(r.source_font_size)))

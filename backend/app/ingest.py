@@ -21,7 +21,7 @@ NOTICE = "PII detection is incomplete. Inspect the full page, including handwrit
 def text_region(text: str, box, confidence: float) -> dict:
     return Region(id=uuid.uuid4().hex[:12], label=text[:60] or "Text", text=text,
                   kind=classify(text), box=tuple(int(v) for v in box),
-                  confidence=max(0, min(1, confidence))).model_dump(mode="json")
+                  confidence=max(0, min(1, confidence)),origin="ocr").model_dump(mode="json")
 
 
 def decode(content: bytes, suffix: str) -> tuple[Image.Image, list[dict]]:

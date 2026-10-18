@@ -130,3 +130,9 @@ recognized strings stay local in template metadata and never enter export JSON.
 
 Review is an explicit user assertion, not evidence that all PII was detected.
 The server cannot verify the honesty or completeness of an acknowledgment.
+
+
+Document PII/table analysis endpoints and rendering options are documented in
+[document-analysis.md](document-analysis.md#api-additions). These create editable
+drafts without saving template changes. English TrOCR inference requires explicitly
+installed local models; see capabilities for availability.

@@ -43,6 +43,15 @@ export interface RuleOptions {
   font_weight?: "auto" | "normal" | "bold";
   background_mode?: "auto" | "solid";
   background_color?: string;
+  cleanup_mode?: "full_region" | "ink_only";
+  writing_style?: "printed" | "cursive";
+  code_background?: "transparent" | "white";
+  signature_style?: "name" | "initials" | "flourish";
+  seal_style?: "random" | "ring" | "round" | "rectangle" | "text";
+  seal_color?: "random" | "red" | "blue" | "green" | "mixed";
+  seal_text?: string;
+  seal_subtext?: string;
+  seal_wear?: number;
 }
 export interface Region {
   id: string;
@@ -61,6 +70,8 @@ export interface Region {
   rule_resolved_hash?: string;
   source_font?: string;
   source_font_size?: number | null;
+  origin?: "manual" | "ocr" | "pii";
+  pii_category?: string;
 }
 export interface Template {
   id: string;

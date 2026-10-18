@@ -160,7 +160,11 @@ controls, audit logs and backup policy.
 
 ## Later phases (not claimed as implemented)
 
-Phase 2: TrOCR crop recognition, Presidio + local spaCy, structured restoration,
+Current document analysis adds optional TrOCR-Small English crop recognition,
+OCR-grounded local Qwen PII proposals and ruled-grid table extraction; see
+[document-analysis.md](document-analysis.md) for implemented boundaries.
+
+Remaining phase 2: general layout recognition, Presidio + local spaCy, structured restoration,
 annotation editing/versioning, class balancing and configurable augmentations.
 Phase 3: shared Qwen via loopback llama.cpp, LangGraph plan/review nodes, FAISS
 local embeddings and MCP interoperability. Phase 4: opt-in SD 1.5 LCM isolated

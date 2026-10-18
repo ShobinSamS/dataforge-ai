@@ -13,7 +13,7 @@ Internet access; runtime can remain offline after packages/models are provisione
 | Tesseract | Optional printed fallback, subprocess timeout | [Official Apache-2.0 license](https://github.com/tesseract-ocr/tesseract/blob/main/LICENSE) | Executable not installed here; failure/manual path tested |
 | PDFium / pypdfium2 | Native PDF text + canonical raster | [pypdfium2 license explanation](https://github.com/pypdfium2-team/pypdfium2#licensing) | Real fixture decoding and coordinates exercised |
 | Qwen3-1.7B GGUF | Optional loopback Ollama text generation, bounded structured batches, CPU, no cloud fallback | [Official GGUF, Apache-2.0](https://huggingface.co/Qwen/Qwen3-1.7B-GGUF), [Ollama tag](https://ollama.com/library/qwen3%3A1.7b) | Real local Q4_K_M inference exercised for text tasks; no general accuracy or latency guarantee |
-| TrOCR base handwritten | Planned only for cropped text lines, not signatures | [Official model card, MIT](https://huggingface.co/microsoft/trocr-base-handwritten) | Not installed or benchmarked |
+| TrOCR-Small printed / handwritten | Optional local CPU recognition of English line/cell crops, not page layout or signatures | [Microsoft handwritten model card](https://huggingface.co/microsoft/trocr-small-handwritten), [printed model](https://huggingface.co/microsoft/trocr-small-printed) | Both installed and exercised on synthetic font lines; handwritten punctuation error observed. No Indian handwriting benchmark; see document-analysis.md |
 | Presidio | Planned in addition to regex; local NLP model must also be provisioned | [Official analyzer docs](https://microsoft.github.io/presidio/analyzer/) | Not integrated; regex is not equivalent semantic coverage |
 | SD 1.5 / LCM / OpenVINO | Disabled; isolated CPU process benchmark before integration | [OpenVINO model card](https://huggingface.co/OpenVINO/stable-diffusion-v1-5-fp16-ov): CreativeML Open RAIL-M, OpenVINO >=2025.0 and Optimum Intel >=1.22. [LCM-LoRA paper](https://arxiv.org/abs/2311.05556) | No hardware latency, RAM or quality claim; no diffusion backend shipped |
 | LangGraph / MCP / FAISS | Documented phase-3 design | Recheck exact pinned dependencies and their transitive licenses during that phase | Not integrated |
@@ -25,9 +25,10 @@ dependencies and measured working sets before sharing memory with generation.
 
 Faker names are invented samples, but may coincide with real names. Addresses
 use a deliberately fictional locality, emails use example.invalid, identifiers
-use a SYN prefix, and phone values use the reserved 202-555-01xx fictional range.
-Signature strokes are generated from random curves; seals explicitly say
-FICTIONAL / SAMPLE. No credential validity is implied.
+have configurable random formats without an automatic prefix, and phone values use
+the reserved 202-555-01xx fictional range. Signatures combine synthetic letters and
+optional flourishes; configurable seals use sample text by default. Provenance remains
+in metadata. No credential validity is implied.
 
 Model/service admission plan: inspect available RAM, acquire the single resource
 slot, load only one heavy model, execute a bounded task, release the model/process,

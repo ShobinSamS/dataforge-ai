@@ -2741,3 +2741,44 @@ td small {
     transition: none !important;
   }
 }
+.document-analysis {
+  margin-bottom: 18px;
+  padding: 18px;
+}
+.analysis-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+}
+.analysis-toolbar label {
+  min-width: 210px;
+  flex: 1;
+}
+.analysis-results {
+  max-height: 330px;
+  overflow: auto;
+  margin: 12px 0;
+}
+.analysis-candidate {
+  display: grid;
+  grid-template-columns: auto 1fr 150px;
+  gap: 10px;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 0;
+}
+.analysis-candidate small {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+.analysis-results td input {
+  min-width: 65px;
+}
+.analysis-results td:nth-child(4) input {
+  min-width: 230px;
+}
+@media (max-width: 700px) {
+  .analysis-candidate {
+    grid-template-columns: 1fr;
+  }
+}

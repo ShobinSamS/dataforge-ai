@@ -1,0 +1,6 @@
+# Optional CPU OCR. Install torch from the CPU wheel index first (see docs).
+torch>=2.6,<3
+transformers>=4.48,<5
+sentencepiece>=0.2,<1
+safetensors>=0.4,<1
+protobuf>=4,<8

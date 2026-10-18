@@ -64,6 +64,7 @@ import type {
 } from "./types";
 import { fieldTypes } from "./types";
 import RegionEditor from "./RegionEditor";
+import DocumentAnalysis from "./components/DocumentAnalysis";
 import RegionRuleControls from "./components/RegionRuleControls";
 import DocumentOutputControls from "./components/DocumentOutputControls";
 import Dashboard from "./pages/Dashboard";
@@ -149,6 +150,7 @@ export default function App() {
   const selectedTemplate =
     templates.find((t) => t.id === templateId) || templates[0];
   const selectedJob = jobs.find((j) => j.id === jobId) || jobs[0];
+  const [analysisPreview, setAnalysisPreview] = useState<Region[]>([]);
   const [regions, setRegions] = useState<Region[]>([]),
     [selected, setSelected] = useState(""),
     [privacy, setPrivacy] = useState(false),
@@ -657,10 +659,22 @@ export default function App() {
                       : "Review needed"}
                   </Badge>
                 </div>
+                <DocumentAnalysis
+                  key={selectedTemplate.id}
+                  template={selectedTemplate}
+                  regions={regions}
+                  onPreview={setAnalysisPreview}
+                  onApply={(rs) => {
+                    setRegions(rs);
+                    setPrivacy(false);
+                    setSelected("");
+                  }}
+                />
                 <div className="editor-grid">
                   <RegionEditor
                     template={selectedTemplate}
                     regions={regions}
+                    suggestions={analysisPreview}
                     selected={selected}
                     onSelect={setSelected}
                     onChange={(rs) => {

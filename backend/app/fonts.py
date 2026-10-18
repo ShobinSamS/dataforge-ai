@@ -14,7 +14,7 @@ def installed_fonts() -> dict:
            Path("/usr/share/fonts/truetype/dejavu"),Path("/usr/share/fonts/truetype/liberation2")]
     names=["arial","arialbd","ariali","arialbi","calibri","calibrib","cambria","cambriab",
            "times","timesbd","timesi","cour","courbd","verdana","verdanab","segoeui","segoeuib",
-           "tahoma","tahomabd","trebuc","DejaVuSans","DejaVuSans-Bold","DejaVuSerif",
+           "tahoma","tahomabd","trebuc","segoesc","segoescb","Gabriola","mistral","freescpt","brushsci","ITCEDSCR","LHANDW","DejaVuSans","DejaVuSans-Bold","DejaVuSerif",
            "DejaVuSansMono","LiberationSans-Regular","LiberationSerif-Regular","LiberationMono-Regular"]
     result={}
     for root in roots:
@@ -26,6 +26,11 @@ def installed_fonts() -> dict:
                 result[name.lower()]={"id":name.lower(),"label":f"{family} {style}","family":family,"bold":"bold" in style.lower(),"italic":bool(re.search("italic|oblique",style,re.I)),"path":str(path)}
             except OSError: continue
     return result
+
+
+def cursive_font_id() -> str:
+    fonts=installed_fonts()
+    return next((key for key in ("segoesc","freescpt","gabriola","brushsci","mistral","lhandw","timesi","ariali") if key in fonts),"auto")
 
 
 @lru_cache(maxsize=512)
@@ -184,6 +189,8 @@ def prepare_typography(source: Path, regions: list) -> list:
             core=pixels[brightness<=np.percentile(brightness,35)] if np.mean(border)>=127 else pixels[brightness>=np.percentile(brightness,65)]
             color=np.median(core,axis=0).astype(int)
             style.text_color="#"+"".join(f"{value:02x}" for value in color)
+        if style.font_id=="auto" and style.writing_style=="cursive":
+            style.font_id=cursive_font_id()
         if style.font_id=="auto":
             native=native_font_id(region.source_font) if region.source_font else "auto"
             if native!="auto":

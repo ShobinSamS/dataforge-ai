@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, post } from "../api";
 import type { Region, RuleOptions } from "../types";
 import FontControls from "./FontControls";
+import AssetStyleControls from "./AssetStyleControls";
 
 export const defaultRuleOptions: RuleOptions = {
   date_format: "yyyy-mm-dd",
@@ -120,6 +121,7 @@ export default function RegionRuleControls({
 
   return (
     <fieldset className="region-rule-controls" disabled={busy} aria-busy={busy}>
+      <AssetStyleControls field={field} options={options} onChange={onChange} />
       <label>
         Action
         <select

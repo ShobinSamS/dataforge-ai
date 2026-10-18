@@ -22,6 +22,7 @@ import type { Region, Template } from "./types";
 interface Props {
   template: Template;
   regions: Region[];
+  suggestions?: Region[];
   selected: string;
   onSelect: (id: string) => void;
   onChange: (regions: Region[]) => void;
@@ -29,6 +30,7 @@ interface Props {
 export default function RegionEditor({
   template,
   regions,
+  suggestions = [],
   selected,
   onSelect,
   onChange,
@@ -259,6 +261,20 @@ export default function RegionEditor({
               fill="#14b8a620"
             />
           )}
+          {suggestions.map((r) => (
+            <Rect
+              key={`suggestion-${r.id}`}
+              x={r.box[0]}
+              y={r.box[1]}
+              width={r.box[2]}
+              height={r.box[3]}
+              stroke="#be185d"
+              strokeWidth={2 / scale}
+              dash={[6 / scale, 4 / scale]}
+              fill="#be185d18"
+              listening={false}
+            />
+          ))}
           <Transformer
             ref={transformer}
             rotateEnabled={false}
@@ -280,6 +296,7 @@ export default function RegionEditor({
           <i className="dot gray" /> Preserved content
         </span>
         <span>Drag to adjust · scroll to zoom</span>
+        <span>Pink dashed: analysis suggestion</span>
       </div>
     </div>
   );

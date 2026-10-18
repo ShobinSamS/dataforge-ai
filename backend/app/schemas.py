@@ -45,6 +45,15 @@ class RuleOptions(Contract):
     font_weight: Literal["auto","normal","bold"] = "auto"
     background_mode: Literal["auto","solid"] = "auto"
     background_color: str = Field(default="#ffffff",pattern=r"^#[0-9a-fA-F]{6}$")
+    cleanup_mode: Literal["full_region","ink_only"] = "full_region"
+    writing_style: Literal["printed","cursive"] = "printed"
+    code_background: Literal["transparent","white"] = "transparent"
+    signature_style: Literal["name","initials","flourish"] = "flourish"
+    seal_style: Literal["random","ring","round","rectangle","text"] = "random"
+    seal_color: Literal["random","red","blue","green","mixed"] = "random"
+    seal_text: str = Field(default="SAMPLE OFFICE",min_length=1,max_length=60)
+    seal_subtext: str = Field(default="RECEIVED",min_length=1,max_length=40)
+    seal_wear: float = Field(default=.08,ge=0,le=.45)
 
     @field_validator("identifier_pattern")
     @classmethod
@@ -88,6 +97,8 @@ class Region(Contract):
     rule_resolved_hash: str = Field(default="",max_length=64)
     source_font: str = Field(default="",max_length=150)
     source_font_size: float | None = Field(default=None,gt=0,le=1000)
+    origin: Literal["manual","ocr","pii"] = "manual"
+    pii_category: Literal["","person","address","email","phone","date","identifier","financial","organization","medical","other"] = ""
 
     @model_validator(mode="after")
     def valid_box(self):

@@ -28,6 +28,7 @@ from .format_references import format_references
 from .fonts import installed_fonts, load_font, match_font, prepare_typography
 from PIL import Image
 from .portraits import save_portrait, portrait_metadata, fetch_configured_portrait
+from .document_analysis import analysis_router
 
 
 class OnlinePortraitRequest(Contract):
@@ -76,6 +77,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     app.state.sessions = sessions
     app.state.worker = worker
     app.include_router(text_router(sessions,root,queue_lock))
+    app.include_router(analysis_router(sessions,root))
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=["localhost","127.0.0.1","testserver"])
     origins = ["http://localhost:5173","http://127.0.0.1:5173","http://localhost:8000","http://127.0.0.1:8000"]
     app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","POST","PUT"],allow_headers=["Content-Type"])
@@ -223,6 +225,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
 
     @app.get("/api/system")
     def system():
+        from .vision_ocr import capabilities as vision_capabilities
         import shutil
         return {"version":"0.1.0","mode":"local-cpu","worker_count":1,
                 "available_ram_mb":round(psutil.virtual_memory().available/1024**2),
@@ -230,7 +233,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
                 "ocr":{"configured":settings.ocr_engine,"paddle_local_models":bool(settings.paddle_det_dir and settings.paddle_rec_dir),
                        "tesseract":bool(settings.tesseract_cmd or shutil.which("tesseract"))},
                 "capabilities":{"procedural":True,"pdf_text":True,"yolo":True,"coco":True,"ocr_export":True,
-                                "text_datasets":True,"llm":True,"local_llm_adapter":True,"document_rule_planner":True,"portrait_fields":True,"erase_regions":True,"font_matching":True,"custom_pattern_templates":True,"qr_controls":True,"diffusion":False,"presidio":False,"trocr":False,"mcp":False,"rag":False},
+                                "text_datasets":True,"llm":True,"local_llm_adapter":True,"document_rule_planner":True,"portrait_fields":True,"erase_regions":True,"font_matching":True,"custom_pattern_templates":True,"qr_controls":True,"pii_suggestions":True,"ruled_table_extraction":True,"transparent_codes":True,"trocr":any(vision_capabilities()["models"].values()),"diffusion":False,"presidio":False,"mcp":False,"rag":False},
                 "privacy":"Template images and OCR stay local. Only explicit provider portrait downloads use the internet. Detection requires manual review."}
 
     @app.get("/api/templates")

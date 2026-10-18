@@ -51,7 +51,9 @@ def test_qr_padding_and_borderless_validation(tmp_path):
     zero,_=asset("qr",(180,180),"ABC123",random.Random(1),qr_padding=0)
     padded,_=asset("qr",(180,180),"ABC123",random.Random(1),qr_padding=4)
     assert zero.getpixel((0,0))[:3]==(0,0,0)
-    assert padded.getpixel((0,0))[:3]==(255,255,255)
+    assert padded.getpixel((0,0))[3]==0
+    white,_=asset("qr",(180,180),"ABC123",random.Random(1),RuleOptions(code_background="white"),qr_padding=4)
+    assert white.getpixel((0,0))==(255,255,255,255)
     source=tmp_path/"source.png";Image.new("RGB",(300,300),"white").save(source)
     r=Region(id="qr",kind="qr",box=[40,40,180,180],confirmed=True)
     result=render_sample(source,[r],GenerationConfig(template_id="test",qr_padding=0,qr_payload_length=24,blur_probability=0,rotation_probability=0),0,tmp_path/"out")
@@ -93,7 +95,7 @@ def test_automatic_bold_and_background_restoration(tmp_path):
     source=Image.fromarray(pixels);text="ABCDEFG1234567"
     ImageDraw.Draw(source).text((15,20),text,font=load_font(32,bold),fill="black")
     path=tmp_path/"source.png";source.save(path)
-    region=Region(id="replace",kind="text",text=text,box=[10,10,400,70],rule_options={"literal_text":"REPLACED"})
+    region=Region(id="replace",kind="text",text=text,box=[10,10,400,70],rule_options={"literal_text":"REPLACED","cleanup_mode":"ink_only"})
     prepared=prepare_typography(path,[region])[0]
     assert installed_fonts()[prepared.rule_options.font_id]["bold"]
     assert prepared.rule_options.text_color=="#000000"
