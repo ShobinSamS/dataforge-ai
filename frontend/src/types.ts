@@ -55,7 +55,12 @@ export interface RuleOptions {
     | "initials"
     | "letter_wave"
     | "monogram"
-    | "flourish";
+    | "flourish"
+    | "tall_initial"
+    | "compact"
+    | "angular"
+    | "looped"
+    | "sweeping";
   seal_style?: "random" | "ring" | "round" | "rectangle" | "text";
   seal_color?: "random" | "red" | "blue" | "green" | "mixed";
   seal_text?: string;

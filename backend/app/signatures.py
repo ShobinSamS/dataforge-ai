@@ -1,12 +1,14 @@
 """Seeded fictional lettering with pen continuations anchored to the glyphs."""
 import random
 import re
+from functools import lru_cache
 import numpy as np
 from PIL import Image,ImageDraw
 from .fonts import installed_fonts,load_font,cursive_font_id,resolve_font_weight
 from .schemas import RuleOptions
 
-STYLES=("name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish")
+EXPRESSIVE=("tall_initial","compact","angular","looped","sweeping")
+STYLES=("name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish")+EXPRESSIVE
 
 
 def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
@@ -14,7 +16,7 @@ def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
     if not words:raise ValueError("Signature text needs at least one alphabetic character")
     first,last=words[0],words[-1]
     initials=first[0].upper()+(last[0].upper() if len(words)>1 else first[min(1,len(first)-1)].upper())
-    family=rng.choices(STYLES,weights=(2,2,2,3,1,3,2,2))[0] if style.signature_style=="mixed" else style.signature_style
+    family=rng.choices(STYLES,weights=(1,1,1,2,1,2,2,2,4,3,3,4,4))[0] if style.signature_style=="mixed" else style.signature_style
     if family=="single_letter":chunks=[rng.choice(initials)]
     elif family in {"two_letters","monogram"}:chunks=[initials]
     elif family=="initials":chunks=[" ".join(w[0].upper()+"." for w in words[:3])]
@@ -23,12 +25,15 @@ def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
         prefix=initials if rng.random()<.6 else initials[0]
         suffix=last[min(1,len(last)-1)].lower() if len(prefix)==2 else initials[-1]
         chunks=[prefix,suffix]
+    elif family=="angular":chunks=[initials[0]+" "+last] if len(words)>1 else [first]
+    elif family in EXPRESSIVE:chunks=[" ".join(words)]
     else:chunks=[value.strip()]
     fonts=installed_fonts()
     choices=[key for key in ("segoesc","freescpt","gabriola","brushsci","mistral","lhandw") if key in fonts]
     face=(rng.choice(choices) if choices else cursive_font_id()) if style.font_id=="auto" else style.font_id
     return {"style":family,"text":"".join(chunks),"chunks":chunks,"font_id":resolve_font_weight(face,style.font_weight),
-        "finish":family in {"monogram","flourish"} or (family=="letter_wave" and rng.random()<.6)}
+        "finish":family in {"monogram","flourish","looped","sweeping"} or
+                 (family in {"letter_wave","tall_initial"} and rng.random()<.6)}
 
 
 def _curve(draw,points,ink,width):
@@ -36,7 +41,10 @@ def _curve(draw,points,ink,width):
     values=[]
     for t in np.linspace(0,1,65):
         values.append(tuple((1-t)**3*a[k]+3*(1-t)**2*t*b[k]+3*(1-t)*t*t*c[k]+t**3*d[k] for k in (0,1)))
-    draw.line(values,fill=ink,width=width,joint="curve")
+    # Continuous pressure changes along the gesture, rather than uniform wire.
+    for index in range(1,len(values)):
+        pressure=.65+.45*np.sin(np.pi*index/(len(values)-1))
+        draw.line(values[index-1:index+1],fill=ink,width=max(1,round(width*pressure)))
 
 
 def _anchor(alpha,point,bounds=None):
@@ -49,10 +57,147 @@ def _anchor(alpha,point,bounds=None):
     return float(xx[index]),float(yy[index])
 
 
+@lru_cache(maxsize=256)
+def _pen_glyph(font_id,char):
+    """Thin local font outlines into a ballpoint-like centre line, preserving joins.
+
+    Zhang–Suen thinning uses the eight-neighbour topology; unlike erosion alone
+    it preserves thin connecting strokes. Cache individual font glyphs only.
+    """
+    face=load_font(100,font_id);bounds=face.getbbox(char,anchor="ls")
+    glyph=Image.new("L",(max(1,bounds[2]-bounds[0])+4,max(1,bounds[3]-bounds[1])+4))
+    ImageDraw.Draw(glyph).text((2-bounds[0],2-bounds[1]),char,font=face,fill=255,anchor="ls")
+    pixels=np.asarray(glyph)>100
+    for _ in range(min(glyph.size)):
+        changed=False
+        for step in (0,1):
+            p=np.pad(pixels,1)
+            n=[p[:-2,1:-1],p[:-2,2:],p[1:-1,2:],p[2:,2:],p[2:,1:-1],p[2:,:-2],p[1:-1,:-2],p[:-2,:-2]]
+            neighbours=sum(item.astype(np.uint8) for item in n)
+            transitions=sum((~n[i]&n[(i+1)%8]).astype(np.uint8) for i in range(8))
+            if step==0:clear=~(n[0]&n[2]&n[4]) & ~(n[2]&n[4]&n[6])
+            else:clear=~(n[0]&n[2]&n[6]) & ~(n[0]&n[4]&n[6])
+            remove=pixels & (neighbours>=2) & (neighbours<=6) & (transitions==1) & clear
+            if np.any(remove):pixels=pixels & ~remove;changed=True
+        if not changed:break
+    return Image.fromarray(pixels.astype(np.uint8)*255),bounds
+
+
+def _expressive_layer(plan,rng,ink,weight):
+    """Compose fictional lettering with separate capital/body proportions.
+
+    Work in pen coordinates before fitting the complete design into its region.
+    Font outlines supply the letters; proportions, joins and returns are seeded
+    gestures. No source-signature pixels or reference-name traces are used.
+    """
+    family=plan["style"];text=plan["text"]
+    if len(text)>128:raise ValueError("Expressive signatures support up to 128 signing characters; shorten the text or choose a simple lettering style")
+    canvas=Image.new("RGBA",(max(1400,len(text)*150+800),650))
+    x=220.;baseline=370.;letters=[];capitals=[];joins=[];previous=None
+    rise=min(rng.uniform(.04,.12) if family!="compact" else rng.uniform(.01,.06),85/max(1,len(text)*65))
+    compression=rng.uniform(.48,.7) if family in {"compact","angular"} else rng.uniform(.6,.85)
+    new_word=True
+    for char in text:
+        if char.isspace():
+            x+=rng.uniform(12,24);new_word=True;previous=None;continue
+        capital=new_word;new_word=False
+        centre,bounds=_pen_glyph(plan["font_id"],char)
+        if capital:
+            sy=rng.uniform(2.15,2.65) if family!="compact" else rng.uniform(1.25,1.6)
+            sx=rng.uniform(1.15,1.65) if family in {"looped","sweeping"} else rng.uniform(.8,1.15)
+        else:
+            sy=rng.uniform(.60,.88) if family!="angular" else rng.uniform(.9,1.15)
+            sx=compression*rng.uniform(.88,1.1)
+        import cv2
+        line=np.asarray(centre.resize((max(2,round(centre.width*sx)),max(2,round(centre.height*sy))),Image.Resampling.BICUBIC))
+        # Preserve opaque pen ink when shrinking a one-pixel centre line; direct
+        # dilation of fractional alpha would leave pale gaps in narrow letters.
+        line=(line>35).astype(np.uint8)*255
+        line=cv2.dilate(line,cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(7,7) if weight=="bold" else (5,5)))
+        line=cv2.GaussianBlur(line,(3,3),.5)
+        glyph=Image.new("RGBA",(line.shape[1],line.shape[0]),ink);glyph.putalpha(Image.fromarray(line))
+        yy=baseline+bounds[1]*sy-rise*(x-220)+rng.uniform(-2,2)
+        xx=round(x);yy=round(yy)
+        canvas.alpha_composite(glyph,(xx,yy))
+        box=(xx,yy,xx+glyph.width,yy+glyph.height)
+        letters.append(box)
+        if capital:capitals.append(box)
+        # Joins start/end on ink in each glyph; no arbitrary disconnected scribble.
+        if previous:
+            # Read only the two glyph crops, not a page-sized alpha per letter.
+            def at(rect,point):
+                alpha=np.asarray(canvas.crop(rect).getchannel("A"))
+                local=_anchor(alpha,(point[0]-rect[0],point[1]-rect[1]))
+                return local[0]+rect[0],local[1]+rect[1]
+            a=at(previous,(previous[2]-2,baseline-rise*(previous[2]-220)-5))
+            b=at(box,(box[0]+2,baseline-rise*(box[0]-220)-6))
+            dx=b[0]-a[0]
+            joins.append((a,(a[0]+dx*.4,a[1]-5),(b[0]-dx*.35,b[1]+5),b))
+        previous=box
+        # Capitals overlap the small body; lowercase letters stay tightly joined.
+        x+=glyph.width*(rng.uniform(.46,.65) if capital else rng.uniform(.78,.9))
+    draw=ImageDraw.Draw(canvas)
+    alpha=np.asarray(canvas.getchannel("A"))
+    import cv2
+    core=(alpha>127).astype(np.uint8)
+    distances=cv2.distanceTransform(core,cv2.DIST_L2,3)
+    pen=max(2,min(5,round(2*float(np.percentile(distances[core>0],60)))))
+    for points in joins:_curve(draw,points,ink,pen)
+    connection_count=len(joins)
+    left,top,right,bottom=canvas.getbbox();width=right-left;height=bottom-top
+    if family=="looped":
+        # A large oval grows out of an initial and returns into that same letter.
+        cap=rng.choice(capitals);ch=cap[3]-cap[1];cw=cap[2]-cap[0]
+        start=_anchor(alpha,(cap[0]+cw*.35,cap[1]+ch*.75),cap)
+        end=_anchor(alpha,(cap[0]+cw*.65,cap[1]+ch*.50),cap)
+        turn=(cap[0]+cw*.45,cap[1]-35)
+        _curve(draw,(start,(cap[0]-100,cap[1]-5),(turn[0]-85,turn[1]-20),turn),ink,pen)
+        _curve(draw,(turn,(turn[0]+140,turn[1]+10),(cap[2]+70,cap[3]+45),end),ink,pen)
+        connection_count+=1
+    if plan["finish"]:
+        last=letters[-1];cap=capitals[0]
+        start=_anchor(alpha,(last[2],last[1]+(last[3]-last[1])*.65),last)
+        end=_anchor(alpha,(cap[0]+(cap[2]-cap[0])*.6,cap[1]+(cap[3]-cap[1])*.55),cap)
+        if family=="sweeping":
+            # Terminal-to-leading-capital return: broad rising crossbar, then a
+            # tapered underline which reconnects with the initial.
+            turn=(left-80,bottom+35)
+            _curve(draw,(start,(right+170,start[1]-90),(turn[0]+width*.5,turn[1]-35),turn),ink,pen)
+            _curve(draw,(turn,(turn[0]-65,turn[1]+15),(end[0]-40,end[1]+35),end),ink,pen)
+        else:
+            turn=(left+width*.50,top-35)
+            _curve(draw,(start,(right+130,start[1]-30),(turn[0]+width*.25,turn[1]-15),turn),ink,pen)
+            _curve(draw,(turn,(turn[0]-width*.25,turn[1]+15),(end[0]-50,end[1]-10),end),ink,pen)
+        connection_count+=1
+    # Apply a stronger signing slant to the complete pen design; generous source
+    # margins and a final ink crop keep all connected curves inside the output.
+    shear=rng.uniform(.12,.28) if family!="angular" else rng.uniform(.25,.42)
+    canvas=canvas.transform(canvas.size,Image.Transform.AFFINE,(1,shear,-shear*325,0,1,0),resample=Image.Resampling.BICUBIC)
+    return canvas.crop(canvas.getbbox()),connection_count
+
+
+def _fit_expressive(size,plan,rng,style,scale):
+    W,H=size
+    design,connections=_expressive_layer(plan,rng,style.text_color,style.font_weight)
+    ratio=min(W*.88/design.width,H*.80/design.height)
+    if style.font_size:ratio=min(ratio,style.font_size*scale/100)
+    design=design.resize((max(1,round(design.width*ratio)),max(1,round(design.height*ratio))),Image.Resampling.LANCZOS)
+    layer=Image.new("RGBA",(W,H))
+    layer.alpha_composite(design,((W-design.width)//2,(H-design.height)//2))
+    return layer,connections
+
+
 def render_signature(size,value,rng:random.Random,style:RuleOptions):
     w,h=size;scale=3 if w*h<=400_000 else 1
     W,H=w*scale,h*scale
     plan=signature_plan(value,rng,style)
+    if plan["style"] in EXPRESSIVE:
+        layer,count=_fit_expressive((W,H),plan,rng,style,scale)
+        if scale>1:layer=layer.resize((w,h),Image.Resampling.LANCZOS)
+        mask=layer.getchannel("A").point(lambda p:255 if p else 0)
+        return layer,mask,{"style":plan["style"],"text":plan["text"],"font_id":plan["font_id"],
+            "has_flourish":plan["finish"],"has_wave":False,"connection_count":count,"lettering_only":not count,
+            "letter_proportions":"compressed" if plan["style"]=="compact" else "oversized_initials"}
     ink=style.text_color
     layer=Image.new("RGBA",(W,H));draw=ImageDraw.Draw(layer)
     chunks=list(plan["chunks"])

@@ -54,3 +54,34 @@ def test_mixed_mode_covers_all_forms_and_job_labels_match_visible_letters(tmp_pa
     assert len(annotation["text"])==1 and annotation["text"]==annotation["signature"]["text"]
     assert annotation["signature"]["style"]=="single_letter"
     assert annotation["signature"]["lettering_only"]
+
+
+@pytest.mark.parametrize("family",signatures.EXPRESSIVE)
+def test_expressive_strokes_begin_on_existing_ink_and_fit_small_regions(monkeypatch,family):
+    original=signatures._curve;calls=[]
+    def connected(draw,points,ink,width):
+        x,y=map(round,points[0])
+        # Each stroke starts on a glyph or on the preceding pen continuation.
+        alpha=np.asarray(draw._image.getchannel("A"))
+        assert np.any(alpha[max(0,y-2):y+3,max(0,x-2):x+3]>60)
+        calls.append(points)
+        original(draw,points,ink,width)
+    monkeypatch.setattr(signatures,"_curve",connected)
+    for seed in (2,12,42,79):
+        layer,mask,info=signatures.render_signature((180,50),"Mira Dev",random.Random(seed),RuleOptions(signature_style=family))
+        assert calls and info["connection_count"]>0
+        assert info["text"]==("M Dev" if family=="angular" else "Mira Dev")
+        left,top,right,bottom=mask.getbbox()
+        assert 0<left<right<180 and 0<top<bottom<50
+        assert np.array_equal(np.asarray(mask)>0,np.asarray(layer.getchannel("A"))>0)
+
+
+@pytest.mark.parametrize("family",signatures.EXPRESSIVE)
+def test_expressive_jobs_export_the_actual_abbreviated_text(tmp_path,family):
+    source=tmp_path/"source.png";Image.new("RGB",(500,180),"#e8f2f3").save(source)
+    region=Region(id="sign",kind="signature",box=[20,20,450,120],confirmed=True,
+        rule_options={"signature_style":family,"literal_text":"Arun Kumar"})
+    result=render_sample(source,[region],GenerationConfig(template_id="fixture",blur_probability=0,rotation_probability=0),0,tmp_path/family)
+    annotation=result["annotations"][0]
+    assert annotation["text"]==annotation["signature"]["text"]==("A Kumar" if family=="angular" else "Arun Kumar")
+    assert annotation["signature"]["style"]==family

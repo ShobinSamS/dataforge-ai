@@ -48,7 +48,7 @@ class RuleOptions(Contract):
     cleanup_mode: Literal["full_region","ink_only"] = "full_region"
     writing_style: Literal["printed","cursive"] = "printed"
     code_background: Literal["transparent","white"] = "transparent"
-    signature_style: Literal["mixed","name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish"] = "mixed"
+    signature_style: Literal["mixed","name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish","tall_initial","compact","angular","looped","sweeping"] = "mixed"
     seal_style: Literal["random","ring","round","rectangle","text"] = "random"
     seal_color: Literal["random","red","blue","green","mixed"] = "random"
     seal_text: str = Field(default="SAMPLE OFFICE",min_length=1,max_length=60)

@@ -95,6 +95,19 @@ export default function AssetStyleControls({
               }
             >
               <option value="mixed">Mixed signature styles per sample</option>
+              <option value="tall_initial">
+                Tall initials · small connected letters
+              </option>
+              <option value="compact">
+                Compact cursive · tight connected letters
+              </option>
+              <option value="angular">
+                Angular · initial and compressed surname
+              </option>
+              <option value="looped">
+                Large oval initials · connected return
+              </option>
+              <option value="sweeping">Sweeping crossbar and underline</option>
               <option value="name">Full name · no flourish</option>
               <option value="first_name">First name · no flourish</option>
               <option value="single_letter">One letter · no flourish</option>
@@ -110,11 +123,11 @@ export default function AssetStyleControls({
             </select>
           </label>
           <p className="field-hint">
-            Mixed mode varies letter count, script font and connected
-            decoration. Some samples contain only lettering. Waves and finishing
-            curves join the letters instead of adding independent scribbles. A
-            literal rule supplies fictional signing text; the selected style may
-            abbreviate it.
+            Mixed mode varies letter count, large initials, compressed cursive,
+            slant, loops and connected decoration. Some samples contain only
+            lettering. Waves and finishing curves join the letters instead of
+            adding independent scribbles. A literal rule supplies fictional
+            signing text; the selected style may abbreviate it.
           </p>
         </>
       )}
