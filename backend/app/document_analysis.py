@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import Field
 from PIL import Image
 from .schemas import Contract, Region, FieldType
-from .db import Template
+from .db import Template, DeletedTemplate
 from .config import settings
 from .local_llm import LocalLLM
 from .resources import CPU_LOCK
@@ -169,7 +169,7 @@ def analysis_router(sessions,root):
     def image_for(id_):
         with sessions() as db:
             template=db.get(Template,id_)
-            if template is None: raise HTTPException(404,"Template not found")
+            if template is None or db.get(DeletedTemplate,id_) is not None: raise HTTPException(404,"Template not found")
             path=template.image_path
         with Image.open(path) as opened: return opened.convert("RGB")
 

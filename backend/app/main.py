@@ -12,9 +12,9 @@ from pydantic import Field
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
 from starlette.middleware.trustedhost import TrustedHostMiddleware
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from .config import settings
-from .db import Template, TemplateVersion, Job, Sample, Export, connect, uid
+from .db import Template, TemplateVersion, DeletedTemplate, Job, Sample, Export, connect, uid
 from .demo import certificate, demo_regions
 from .ingest import ingest
 from .jobs import Worker, next_hash
@@ -80,7 +80,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     app.include_router(analysis_router(sessions,root))
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=["localhost","127.0.0.1","testserver"])
     origins = ["http://localhost:5173","http://127.0.0.1:5173","http://localhost:8000","http://127.0.0.1:8000"]
-    app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","POST","PUT"],allow_headers=["Content-Type"])
+    app.add_middleware(CORSMiddleware,allow_origins=origins,allow_methods=["GET","POST","PUT","DELETE"],allow_headers=["Content-Type"])
 
     @app.middleware("http")
     async def origin_guard(request: Request, call_next):
@@ -105,7 +105,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
 
     def require(db, model, id_):
         row = db.get(model,id_)
-        if row is None:
+        if row is None or (model is Template and db.get(DeletedTemplate,id_) is not None):
             raise HTTPException(404,"Record not found")
         return row
 
@@ -239,7 +239,39 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     @app.get("/api/templates")
     def templates():
         with sessions() as db:
-            return [template_json(t) for t in db.scalars(select(Template).order_by(Template.created_at.desc()))]
+            return [template_json(t) for t in db.scalars(select(Template).where(~Template.id.in_(select(DeletedTemplate.template_id))).order_by(Template.created_at.desc()))]
+
+    @app.delete("/api/templates/{id_}")
+    def delete_template(id_: str, revision: int = Query(ge=1)):
+        # Serialize with job submission: a source cannot disappear between the
+        # dependency check and creation of a new job snapshot.
+        with queue_lock, sessions.begin() as db:
+            t=require(db,Template,id_)
+            if t.revision!=revision:
+                raise HTTPException(409,"Template changed; reload the library before deleting")
+            jobs_count=db.scalar(select(func.count()).select_from(Job).where(Job.template_id==id_))
+            source=Path(t.image_path).resolve()
+            if jobs_count:
+                db.add(DeletedTemplate(template_id=id_))
+            else:
+                db.execute(delete(TemplateVersion).where(TemplateVersion.template_id==id_))
+                db.delete(t)
+        removed=False;warnings=[]
+        if not jobs_count:
+            # Never recursively delete or follow an arbitrary stored file path.
+            storage=(root/"templates").resolve()
+            expected=(storage/id_/"page.png").resolve()
+            if source==expected and source.is_relative_to(storage) and expected.parent.parent==storage:
+                try:
+                    source.unlink(missing_ok=True)
+                    removed=True
+                    try: source.parent.rmdir()  # only an empty, verified template directory
+                    except OSError: pass
+                except OSError:
+                    warnings.append("Template removed from the library, but its local source image could not be removed.")
+            else:
+                warnings.append("Template removed from the library; its source was outside canonical template storage and was retained.")
+        return {"id":id_,"deleted":True,"retained_for_jobs":bool(jobs_count),"job_count":jobs_count,"source_removed":removed,"warnings":warnings}
 
     @app.post("/api/templates",status_code=201)
     def upload(file: UploadFile):

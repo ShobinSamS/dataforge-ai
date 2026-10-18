@@ -41,3 +41,30 @@ Third-party dependencies retain their licenses. The lockfiles are reproducibilit
 records, not a complete SBOM; release packaging should generate an SBOM and retain
 all applicable library, model and PDFium notices. No proprietary assets or
 real-world personal documents are included in the fixture.
+
+
+## PII model choice (2026-10-18)
+
+The currently installed and enabled model remains `qwen3:1.7b`. Real document
+trials showed false positives on headings and advertising copy; TrOCR also
+misread characters before Qwen received the text. Qwen's general reasoning is
+useful for proposing contextual labels/rules, but it is not a validated standalone
+PII detector. Literal-source evidence, category checks and human review remain
+part of the implemented path.
+
+For the next comparison, evaluate a dedicated span extractor such as
+[GLiNER2-PII](https://arxiv.org/abs/2605.09973), then optionally
+[Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507)
+in a CPU quantization for contextual disambiguation. GLiNER2-PII is specialized
+for PII spans; its authors also report over-prediction of names and limited
+benchmark domains. Qwen's published general benchmarks do not establish PII
+accuracy on these documents. Neither candidate was downloaded, benchmarked or
+enabled by the template-delete change, and the current adapter still restricts
+inference to the configured 1.7B model.
+
+Use corrected OCR text and a representative held-out set of English/Indian
+forms, public headings, empty Name labels, names, contact details and document
+IDs. Measure value-span precision/recall and false positives separately from OCR
+transcription errors. A larger text model cannot read the pixels that OCR got
+wrong. Compare CPU latency and memory with the app/OCR loaded before adopting
+another model; avoid selecting based on parameter count alone.

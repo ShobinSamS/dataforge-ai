@@ -65,6 +65,7 @@ import type {
 import { fieldTypes } from "./types";
 import RegionEditor from "./RegionEditor";
 import DocumentAnalysis from "./components/DocumentAnalysis";
+import TemplateCard from "./components/TemplateCard";
 import RegionRuleControls from "./components/RegionRuleControls";
 import DocumentOutputControls from "./components/DocumentOutputControls";
 import Dashboard from "./pages/Dashboard";
@@ -165,6 +166,12 @@ export default function App() {
       setPrivacy(selectedTemplate.privacy_confirmed);
       setSelected("");
       setConfig((c) => ({ ...c, template_id: selectedTemplate.id }));
+    } else {
+      setRegions([]);
+      setPrivacy(false);
+      setSelected("");
+      setAnalysisPreview([]);
+      setConfig((c) => ({ ...c, template_id: "" }));
     }
   }, [selectedTemplate?.id, selectedTemplate?.revision]);
   useEffect(() => {
@@ -579,34 +586,29 @@ export default function App() {
                     t.name.toLowerCase().includes(search.toLowerCase()),
                   )
                   .map((t) => (
-                    <button
-                      className="template-card"
+                    <TemplateCard
                       key={t.id}
-                      onClick={() => openTemplate(t)}
-                    >
-                      <div className="template-thumb">
-                        <img
-                          src={`/api/templates/${t.id}/image`}
-                          alt={t.name}
-                        />
-                        <Badge
-                          status={t.privacy_confirmed ? "completed" : "paused"}
-                        >
-                          {t.privacy_confirmed ? "Reviewed" : "Review needed"}
-                        </Badge>
-                      </div>
-                      <div className="template-card-body">
-                        <h3>{t.name}</h3>
-                        <p>
-                          {t.regions.length} regions · v{t.revision} · {t.width}{" "}
-                          × {t.height}
-                        </p>
-                        <span>
-                          {t.engine}
-                          <ArrowUpRight size={16} />
-                        </span>
-                      </div>
-                    </button>
+                      template={t}
+                      busy={!!busy}
+                      jobCount={
+                        jobs.filter((j) => j.template_id === t.id).length
+                      }
+                      onOpen={openTemplate}
+                      onDeleted={async (id, message) => {
+                        qc.setQueryData<Template[]>(["templates"], (old) =>
+                          old?.filter((item) => item.id !== id),
+                        );
+                        if (selectedTemplate?.id === id) {
+                          setTemplateId("");
+                          setRegions([]);
+                          setSelected("");
+                          setPrivacy(false);
+                          setAnalysisPreview([]);
+                        }
+                        await qc.invalidateQueries({ queryKey: ["templates"] });
+                        setNotice(message);
+                      }}
+                    />
                   ))}
                 <label className="upload-tile">
                   <UploadCloud size={30} />

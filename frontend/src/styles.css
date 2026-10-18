@@ -1237,6 +1237,39 @@ main {
   border-color: #a7c7bb;
   box-shadow: 0 4px 18px #2d745812;
 }
+.template-open {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  padding: 0;
+  border: 0;
+}
+.template-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 16px 14px;
+}
+.btn.danger {
+  color: #b42318;
+  border-color: #f3b8b3;
+  background: #fff;
+}
+.btn.danger:hover {
+  background: #fff1f0;
+}
+.modal.delete-template-dialog {
+  max-width: 490px;
+}
+.delete-template-dialog [id] {
+  overflow-wrap: anywhere;
+}
+.delete-template-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
 .template-thumb {
   height: 210px;
   position: relative;

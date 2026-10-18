@@ -41,6 +41,13 @@ class TemplateVersion(Base):
     snapshot: Mapped[dict] = mapped_column(JSON)
 
 
+class DeletedTemplate(Base):
+    """Library tombstone: source stays available to existing job snapshots."""
+    __tablename__ = "deleted_templates"
+    template_id: Mapped[str] = mapped_column(ForeignKey("templates.id"),primary_key=True)
+    deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True),default=now)
+
+
 class Job(Base):
     __tablename__ = "jobs"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=uid)

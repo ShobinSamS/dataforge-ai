@@ -136,3 +136,20 @@ Document PII/table analysis endpoints and rendering options are documented in
 [document-analysis.md](document-analysis.md#api-additions). These create editable
 drafts without saving template changes. English TrOCR inference requires explicitly
 installed local models; see capabilities for availability.
+
+
+### Delete from the template library
+
+`DELETE /api/templates/{id}?revision={current_revision}` returns JSON with
+`deleted`, `retained_for_jobs`, `job_count`, `source_removed` and `warnings`.
+A stale revision returns 409; missing/already removed templates return 404.
+Unused templates and their versions are deleted from SQL. Only their verified
+canonical `data/templates/{id}/page.png` is unlinked; arbitrary stored paths are
+never deleted. Source cleanup failures are reported explicitly.
+
+When generation jobs reference the template, a `deleted_templates` tombstone
+removes it from library queries and blocks template reads, edits, analysis and
+new jobs. Existing job snapshots and source files stay available to workers,
+resume, samples and exports. The new tombstone table is created automatically
+for existing SQLite/PostgreSQL databases; no existing column changes are needed.
+Job submission and deletion share the queue lock to protect their source dependency.

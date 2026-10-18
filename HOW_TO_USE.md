@@ -109,6 +109,13 @@ DataForge does not install/start Ollama or download model weights automatically.
 8. Follow the **Job monitor**, inspect **Dataset gallery**, then check the
    **Quality dashboard** and export using [item 12](#12--review-and-export).
 
+**Delete a template:** In **Template library**, use **Delete** under the card and
+confirm the named template. Unused templates lose their source image and saved
+reviews. Templates linked to generation jobs are removed from the library, while
+their source, jobs, samples and exports remain available for that history. They
+cannot be selected for new generation. Cancelling the dialog changes nothing.
+A stale revision is rejected; reload the library if another review was saved.
+
 **Upload support:** PDF, PNG, JPG/JPEG and single-frame TIFF; one page/frame,
 up to 20 MB and 16 megapixels for images. Split multi-page PDFs first. Native
 PDF text extraction works without OCR. Raster text detection needs installed
