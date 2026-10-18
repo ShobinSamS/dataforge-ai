@@ -43,6 +43,14 @@ it("offers mixed, abbreviated and undecorated signatures and resets confirmation
     "angular",
     "looped",
     "sweeping",
+    "gestural",
+    "stacked",
+    "initial_bridge",
+    "terminal_loop",
+    "crossed",
+    "minimal",
+    "surname",
+    "split",
   ]) {
     expect(Array.from(select.options).some((o) => o.value === value)).toBe(
       true,

@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { api, post } from "../api";
 import { Badge, Empty, Stat } from "../components/ui";
+import DeleteDataset from "../components/DeleteDataset";
 import type {
   Language,
   TextConfig,
@@ -106,7 +107,10 @@ export default function TextStudio() {
     refetchInterval: 2000,
   });
   const job = jobs.find((j) => j.id === selectedId) || jobs[0];
-  useEffect(()=>{setReview(false);setOffset(0)},[job?.id]);
+  useEffect(() => {
+    setReview(false);
+    setOffset(0);
+  }, [job?.id]);
   const { data: records } = useQuery({
     queryKey: ["text_records", job?.id, offset],
     queryFn: () =>
@@ -520,6 +524,29 @@ export default function TextStudio() {
                 </div>
                 {job.error && <p className="inline-error">{job.error}</p>}
                 <div className="text-job-actions">
+                  <DeleteDataset
+                    job={job}
+                    busy={!!busy}
+                    text
+                    onDeleted={async (id, message) => {
+                      qc.setQueryData<TextJob[]>(["text_jobs"], (rows) =>
+                        rows?.filter((j) => j.id !== id),
+                      );
+                      qc.setQueryData<TextExport[]>(["text_exports"], (rows) =>
+                        rows?.filter((e) => e.job_id !== id),
+                      );
+                      qc.removeQueries({ queryKey: ["text_records", id] });
+                      qc.removeQueries({ queryKey: ["text_quality", id] });
+                      setSelectedId("");
+                      setNotice(message);
+                      setOffset(0);
+                      setReview(false);
+                      await qc.invalidateQueries({ queryKey: ["text_jobs"] });
+                      await qc.invalidateQueries({
+                        queryKey: ["text_exports"],
+                      });
+                    }}
+                  />
                   {["queued", "running"].includes(job.status) && (
                     <button
                       className="btn small"

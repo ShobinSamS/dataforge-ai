@@ -45,7 +45,7 @@ def test_added_pen_designs_join_actual_letter_ink(monkeypatch,family):
 
 
 def test_mixed_mode_covers_all_forms_and_job_labels_match_visible_letters(tmp_path):
-    families={signatures.signature_plan("Arun Kumar",random.Random(seed),RuleOptions())["style"] for seed in range(150)}
+    families={signatures.signature_plan("Arun Kumar",random.Random(seed),RuleOptions())["style"] for seed in range(600)}
     assert families==set(signatures.STYLES)
     source=tmp_path/"source.png";Image.new("RGB",(500,200),"white").save(source)
     region=Region(id="signature",kind="signature",box=[35,35,420,110],confirmed=True,rule_options={"signature_style":"single_letter","literal_text":"Arun Kumar"})
@@ -85,3 +85,51 @@ def test_expressive_jobs_export_the_actual_abbreviated_text(tmp_path,family):
     annotation=result["annotations"][0]
     assert annotation["text"]==annotation["signature"]["text"]==("A Kumar" if family=="angular" else "Arun Kumar")
     assert annotation["signature"]["style"]==family
+
+
+@pytest.mark.parametrize("family",signatures.PEN_STYLES)
+def test_pen_morphology_is_seeded_and_varies_beyond_the_style_name(family):
+    settings=RuleOptions(signature_style=family)
+    reports=[];hashes=set()
+    for seed in (1,12,42):
+        layer,mask,info=signatures.render_signature((340,100),"Mira Dev",random.Random(seed),settings)
+        assert info["engine"]=="pen-paths-v1" and info["generator_version"]=="signature-v3"
+        assert info["stroke_count"]>0 and layer.getpixel((0,0))[3]==0
+        left,top,right,bottom=mask.getbbox()
+        assert 0<left<right<340 and 0<top<bottom<100
+        reports.append((info["body_ratio"],info["compression"],info["slant"],info["baseline_rise"],info["allograph_variant"]))
+        hashes.add(layer.tobytes())
+    assert len(set(reports))==3 and len(hashes)==3
+    if family=="stacked":assert info["layout"]=="stacked" and "\n" in info["text"]
+    if family=="minimal":assert info["terminal"]=="none" and info["lettering_only"]
+
+
+def test_batch_mixed_override_applies_to_fixed_saved_style_without_mutating_template(tmp_path):
+    source=tmp_path/"source.png";Image.new("RGB",(500,180),"white").save(source)
+    region=Region(id="sign",kind="signature",box=[20,20,450,120],confirmed=True,
+        rule_options={"signature_style":"flourish","literal_text":"Arun Kumar"})
+    fixed=GenerationConfig(template_id="fixture",seed=42,blur_probability=0,rotation_probability=0)
+    varied=fixed.model_copy(update={"signature_style_override":"mixed"})
+    before=region.model_dump()
+    original=render_sample(source,[region],fixed,0,tmp_path/"fixed")["annotations"][0]["signature"]
+    reports=[render_sample(source,[region],varied,i,tmp_path/f"mixed-{i}")["annotations"][0]["signature"] for i in range(5)]
+    assert original["style"]=="flourish" and len({r["style"] for r in reports})>1
+    assert any(r.get("engine")=="pen-paths-v1" for r in reports)
+    assert region.model_dump()==before
+
+
+def test_live_previews_validate_inputs_and_create_no_dataset(tmp_path):
+    import io
+    from fastapi.testclient import TestClient
+    from backend.app.main import create_app
+    app=create_app(f"sqlite:///{tmp_path/'preview.db'}",tmp_path,start_worker=False)
+    with TestClient(app) as client:
+        previews=client.get("/api/signatures/previews?style=mixed&seed=42").json()
+        assert len(previews)==6
+        response=client.get(previews[0]["url"])
+        assert response.status_code==200 and response.headers["X-Signature-Style"]==previews[0]["style"]
+        image=Image.open(io.BytesIO(response.content))
+        assert image.mode=="RGBA" and image.size==(480,160) and image.getpixel((0,0))[3]==0
+        assert client.get("/api/signatures/preview?style=unknown").status_code==422
+        assert client.get("/api/signatures/preview?seed=-1").status_code==422
+        assert client.get("/api/jobs").json()==[]

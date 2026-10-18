@@ -26,6 +26,7 @@ class FieldType(StrEnum):
 
 
 CLASS_NAMES = [v.value for v in FieldType]
+SignatureStyle = Literal["mixed","name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish","tall_initial","compact","angular","looped","sweeping","gestural","stacked","initial_bridge","terminal_loop","crossed","minimal","surname","split"]
 
 
 class RuleOptions(Contract):
@@ -48,7 +49,7 @@ class RuleOptions(Contract):
     cleanup_mode: Literal["full_region","ink_only"] = "full_region"
     writing_style: Literal["printed","cursive"] = "printed"
     code_background: Literal["transparent","white"] = "transparent"
-    signature_style: Literal["mixed","name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish","tall_initial","compact","angular","looped","sweeping"] = "mixed"
+    signature_style: SignatureStyle = "mixed"
     seal_style: Literal["random","ring","round","rectangle","text"] = "random"
     seal_color: Literal["random","red","blue","green","mixed"] = "random"
     seal_text: str = Field(default="SAMPLE OFFICE",min_length=1,max_length=60)
@@ -138,6 +139,7 @@ class GenerationConfig(Contract):
     rotation_degrees: float = Field(default=3, ge=0, le=8)
     noise_sigma: float = Field(default=0, ge=0, le=12)
     signatures: bool = True
+    signature_style_override: Literal["mixed"] | None = None
     seals: bool = True
     qr_codes: bool = True
     barcodes: bool = False

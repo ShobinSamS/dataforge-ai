@@ -66,6 +66,8 @@ import { fieldTypes } from "./types";
 import RegionEditor from "./RegionEditor";
 import DocumentAnalysis from "./components/DocumentAnalysis";
 import TemplateCard from "./components/TemplateCard";
+import DeleteDataset from "./components/DeleteDataset";
+import SignatureGeneration from "./components/SignatureGeneration";
 import RegionRuleControls from "./components/RegionRuleControls";
 import DocumentOutputControls from "./components/DocumentOutputControls";
 import Dashboard from "./pages/Dashboard";
@@ -111,6 +113,7 @@ const defaults: Config = {
   rotation_degrees: 3,
   noise_sigma: 0,
   signatures: true,
+  signature_style_override: "mixed",
   seals: true,
   qr_codes: true,
   barcodes: false,
@@ -266,6 +269,21 @@ export default function App() {
       await post(`/jobs/${job.id}/${action}`);
       await qc.invalidateQueries({ queryKey: ["jobs"] });
     });
+  const datasetDeleted = async (id: string, message: string) => {
+    qc.setQueryData<Job[]>(["jobs"], (rows) =>
+      rows?.filter((j) => j.id !== id),
+    );
+    qc.setQueryData<ExportRecord[]>(["exports"], (rows) =>
+      rows?.filter((e) => e.job_id !== id),
+    );
+    qc.removeQueries({ queryKey: ["samples", id] });
+    qc.removeQueries({ queryKey: ["quality", id] });
+    if (jobId === id) setJobId("");
+    setSampleSelected(null);
+    setNotice(message);
+    await qc.invalidateQueries({ queryKey: ["jobs"] });
+    await qc.invalidateQueries({ queryKey: ["exports"] });
+  };
   const fixQrJob = (job: Job) => {
     if (!templates.some((t) => t.id === job.template_id)) {
       setError(
@@ -1036,6 +1054,11 @@ export default function App() {
                   }}
                   onChange={(patch) => setConfig((c) => ({ ...c, ...patch }))}
                 />
+                <SignatureGeneration
+                  config={config}
+                  template={selectedTemplate}
+                  onChange={(patch) => setConfig((c) => ({ ...c, ...patch }))}
+                />
                 <div className="section-divider" />
                 <h3>Image variation</h3>
                 <p className="muted">
@@ -1291,6 +1314,11 @@ export default function App() {
                   <span className="muted">
                     {selectedJob.completed} samples · {selectedJob.name}
                   </span>
+                  <DeleteDataset
+                    job={selectedJob}
+                    busy={!!busy}
+                    onDeleted={datasetDeleted}
+                  />
                   <button
                     className="btn"
                     onClick={() => go("Quality dashboard")}
@@ -1333,6 +1361,15 @@ export default function App() {
                         {s.annotations.length} annotated objects
                         <ScanLine size={14} />
                       </p>
+                      {s.annotations.some((a) => a.signature) && (
+                        <p>
+                          Signature:{" "}
+                          {s.annotations
+                            .filter((a) => a.signature)
+                            .map((a) => a.signature!.style.replaceAll("_", " "))
+                            .join(", ")}
+                        </p>
+                      )}
                     </button>
                   ))}
                 </div>

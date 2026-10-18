@@ -164,7 +164,7 @@ def text_router(sessions, root: Path, queue_lock: threading.Lock) -> APIRouter:
     @router.post("/jobs/{id_}/exports",status_code=201)
     def export(id_: str, body: TextExportRequest):
         if not body.review_confirmed: raise HTTPException(422,"Review text, labels, language and privacy before export")
-        with sessions.begin() as db:
+        with queue_lock,sessions.begin() as db:
             job=require(db,TextJob,id_)
             if job.status not in {"completed","review_required"}: raise HTTPException(409,"Wait for text generation to finish")
             if not any(r.validation["passed"] for r in db.scalars(select(TextSample).where(TextSample.job_id==id_))):

@@ -134,6 +134,8 @@ as experimental rather than claiming arbitrary handwritten-table accuracy.
   two letters, dotted initials, letter–wave–letter, overlapping monogram and a
   name with a connected finish, tall initials with small connected letters,
   compact cursive, angular initial/surname, oval initials and sweeping crossbars.
+  Eight additional English pen-path families and their independent morphology
+  parameters are described in [signature research](signature-research.md).
   Choose a signature region, open **Rendering style and cleanup → Signature
   style**, then select a style or **Mixed signature styles per sample**. Verify
   the changed region and review the template before starting a new generation

@@ -95,6 +95,30 @@ export default function AssetStyleControls({
               }
             >
               <option value="mixed">Mixed signature styles per sample</option>
+              <option value="gestural">
+                Pen strokes · abbreviated fast signing
+              </option>
+              <option value="stacked">
+                Pen strokes · two-line composition
+              </option>
+              <option value="initial_bridge">
+                Pen strokes · initials with a bridge and letter
+              </option>
+              <option value="terminal_loop">
+                Pen strokes · terminal oval or spiral
+              </option>
+              <option value="crossed">
+                Pen strokes · interlocked initials and crossbar
+              </option>
+              <option value="minimal">
+                Pen strokes · simple letter, initials or first name
+              </option>
+              <option value="surname">
+                Pen strokes · initial and compressed surname
+              </option>
+              <option value="split">
+                Pen strokes · initials with a small letter cluster
+              </option>
               <option value="tall_initial">
                 Tall initials · small connected letters
               </option>

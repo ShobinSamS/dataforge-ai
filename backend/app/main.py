@@ -1,6 +1,8 @@
 """Loopback-only API. Run a single Uvicorn process; see README security boundary."""
 import asyncio
 import json
+import io
+import random
 import logging
 import threading
 from collections import Counter
@@ -10,7 +12,7 @@ import psutil
 from fastapi import FastAPI, UploadFile, HTTPException, Request, Query, Form
 from pydantic import Field
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, StreamingResponse, JSONResponse
+from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, Response
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy import select, func, delete
 from .config import settings
@@ -30,6 +32,9 @@ from PIL import Image
 from .portraits import save_portrait, portrait_metadata, fetch_configured_portrait
 from .document_analysis import analysis_router
 from .qr_capacity import qr_preflight, check_qr_capacity
+from .dataset_delete import dataset_delete_router
+from .signatures import signature_plan,render_signature
+from .schemas import RuleOptions,SignatureStyle
 
 
 class OnlinePortraitRequest(Contract):
@@ -78,6 +83,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     app.state.sessions = sessions
     app.state.worker = worker
     app.include_router(text_router(sessions,root,queue_lock))
+    app.include_router(dataset_delete_router(sessions,root,queue_lock))
     app.include_router(analysis_router(sessions,root))
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=["localhost","127.0.0.1","testserver"])
     origins = ["http://localhost:5173","http://127.0.0.1:5173","http://localhost:8000","http://127.0.0.1:8000"]
@@ -327,6 +333,20 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
             reviewed_regions=normalize_regions([Region.model_validate(r) for r in t.regions],strict=True)
             return {**qr_preflight(reviewed_regions,body),"template_revision":t.revision}
 
+    @app.get("/api/signatures/previews")
+    def signature_previews(style: SignatureStyle="mixed",seed: int=Query(42,ge=0,le=2**31-1)):
+        names=("Arun Kumar","Mira Dev","Rohan Sen","Nila Shah","Dev Mehra","Sara Das")
+        return [{"style":signature_plan(name,random.Random((seed+i)%(2**31)),RuleOptions(signature_style=style))["style"],
+                 "url":f"/api/signatures/preview?style={style}&seed={(seed+i)%(2**31)}&name_index={i}&v=3"} for i,name in enumerate(names)]
+
+    @app.get("/api/signatures/preview")
+    def signature_preview(style: SignatureStyle="mixed",seed: int=Query(42,ge=0,le=2**31-1),name_index: int=Query(0,ge=0,le=5)):
+        names=("Arun Kumar","Mira Dev","Rohan Sen","Nila Shah","Dev Mehra","Sara Das")
+        with CPU_LOCK:
+            layer,_,info=render_signature((480,160),names[name_index],random.Random(seed),RuleOptions(signature_style=style,text_color="#173574"))
+            buffer=io.BytesIO();layer.save(buffer,format="PNG")
+        return Response(buffer.getvalue(),media_type="image/png",headers={"Cache-Control":"no-store","X-Signature-Style":info["style"]})
+
     @app.post("/api/jobs",status_code=201)
     def generate(body: GenerationConfig):
         if body.count > settings.max_samples:
@@ -394,6 +414,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
             while not await request.is_disconnected():
                 with sessions() as db:
                     j = db.get(Job,id_)
+                    if j is None:return
                     data = job_json(j)
                 yield f"data: {json.dumps(data)}\n\n"
                 if data["status"] not in {"queued","running","cancelling"}:
@@ -429,7 +450,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     def export(id_: str, body: ExportRequest):
         if not body.review_confirmed:
             raise ValueError("Review generated samples and confirm privacy before export")
-        with sessions.begin() as db:
+        with queue_lock,sessions.begin() as db:
             j = require(db,Job,id_)
             if j.status not in {"completed","review_required"}:
                 raise HTTPException(409,"Wait for generation to finish before export")

@@ -197,6 +197,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
             if r.kind!="signature" and style.font_size is None and r.source_font_size: style.font_size=max(6,min(200,round(r.source_font_size)))
             typography[r.id]={"font_id":style.font_id,"preferred_size":style.font_size,"text_color":style.text_color}
             if r.kind=="signature":
+                if config.signature_style_override:style.signature_style=config.signature_style_override
                 layer,mask,signature_details[r.id]=render_signature((w,h),values[r.id],rng,style)
                 values[r.id]=signature_details[r.id]["text"]
             else:

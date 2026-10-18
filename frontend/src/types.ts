@@ -60,7 +60,15 @@ export interface RuleOptions {
     | "compact"
     | "angular"
     | "looped"
-    | "sweeping";
+    | "sweeping"
+    | "gestural"
+    | "stacked"
+    | "initial_bridge"
+    | "terminal_loop"
+    | "crossed"
+    | "minimal"
+    | "surname"
+    | "split";
   seal_style?: "random" | "ring" | "round" | "rectangle" | "text";
   seal_color?: "random" | "red" | "blue" | "green" | "mixed";
   seal_text?: string;
@@ -111,6 +119,7 @@ export interface Config {
   rotation_degrees: number;
   noise_sigma: number;
   signatures: boolean;
+  signature_style_override?: "mixed" | null;
   seals: boolean;
   qr_codes: boolean;
   barcodes: boolean;
@@ -133,6 +142,7 @@ export interface Job {
   created_at: string;
 }
 export interface Annotation {
+  signature?: { style: string; text: string; engine?: string };
   region_id: string;
   class_id: number;
   class: string;

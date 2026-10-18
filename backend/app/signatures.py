@@ -6,9 +6,10 @@ import numpy as np
 from PIL import Image,ImageDraw
 from .fonts import installed_fonts,load_font,cursive_font_id,resolve_font_weight
 from .schemas import RuleOptions
+from .signature_strokes import PEN_STYLES,render_pen_signature
 
 EXPRESSIVE=("tall_initial","compact","angular","looped","sweeping")
-STYLES=("name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish")+EXPRESSIVE
+STYLES=("name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish")+EXPRESSIVE+PEN_STYLES
 
 
 def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
@@ -16,7 +17,7 @@ def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
     if not words:raise ValueError("Signature text needs at least one alphabetic character")
     first,last=words[0],words[-1]
     initials=first[0].upper()+(last[0].upper() if len(words)>1 else first[min(1,len(first)-1)].upper())
-    family=rng.choices(STYLES,weights=(1,1,1,2,1,2,2,2,4,3,3,4,4))[0] if style.signature_style=="mixed" else style.signature_style
+    family=rng.choices(STYLES,weights=(1,1,1,1,1,1,1,1,2,2,2,2,2,5,4,4,4,4,3,4,4))[0] if style.signature_style=="mixed" else style.signature_style
     if family=="single_letter":chunks=[rng.choice(initials)]
     elif family in {"two_letters","monogram"}:chunks=[initials]
     elif family=="initials":chunks=[" ".join(w[0].upper()+"." for w in words[:3])]
@@ -27,6 +28,14 @@ def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
         chunks=[prefix,suffix]
     elif family=="angular":chunks=[initials[0]+" "+last] if len(words)>1 else [first]
     elif family in EXPRESSIVE:chunks=[" ".join(words)]
+    elif family=="gestural":chunks=[first[:rng.randint(1,min(4,len(first)))]+initials[-1]+last[-rng.randint(1,min(2,len(last))):]]
+    elif family=="stacked":chunks=[first+"\n"+last] if len(words)>1 else [first]
+    elif family=="initial_bridge":chunks=[initials+" "+last[-1].lower()]
+    elif family=="minimal":chunks=[rng.choice((initials,first[0].upper(),first))]
+    elif family=="surname":chunks=[first[0].upper()+" "+last]
+    elif family=="split":chunks=[initials+" "+last[1:3].lower()]
+    elif family=="crossed":chunks=[initials if rng.random()<.5 else first[:2]+last[:2]]
+    elif family=="terminal_loop":chunks=[rng.choice((first,last,first+" "+last))]
     else:chunks=[value.strip()]
     fonts=installed_fonts()
     choices=[key for key in ("segoesc","freescpt","gabriola","brushsci","mistral","lhandw") if key in fonts]
@@ -191,6 +200,13 @@ def render_signature(size,value,rng:random.Random,style:RuleOptions):
     w,h=size;scale=3 if w*h<=400_000 else 1
     W,H=w*scale,h*scale
     plan=signature_plan(value,rng,style)
+    if plan["style"] in PEN_STYLES and all(c.isascii() for c in plan["text"]):
+        if len(plan["text"])>128:raise ValueError("Pen signatures support up to 128 signing characters")
+        layer,info=render_pen_signature((W,H),plan["text"],plan["style"],rng,style.text_color,_curve,style.font_weight=="bold")
+        if scale>1:layer=layer.resize((w,h),Image.Resampling.LANCZOS)
+        mask=layer.getchannel("A").point(lambda p:255 if p else 0)
+        info.update(style=plan["style"],text=plan["text"],font_id="pen-paths",connection_count=info["stroke_count"],generator_version="signature-v3")
+        return layer,mask,info
     if plan["style"] in EXPRESSIVE:
         layer,count=_fit_expressive((W,H),plan,rng,style,scale)
         if scale>1:layer=layer.resize((w,h),Image.Resampling.LANCZOS)
