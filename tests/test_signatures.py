@@ -133,3 +133,26 @@ def test_live_previews_validate_inputs_and_create_no_dataset(tmp_path):
         assert client.get("/api/signatures/preview?style=unknown").status_code==422
         assert client.get("/api/signatures/preview?seed=-1").status_code==422
         assert client.get("/api/jobs").json()==[]
+
+
+@pytest.mark.parametrize("family",["minimal","tall_initial","name"])
+def test_random_pen_weight_is_seeded_thicker_and_keeps_lettering(family):
+    options=RuleOptions(signature_style=family,text_color="#173574")
+    # Compare with the unweighted rendering using exactly the same RNG state.
+    seen=set()
+    for seed in range(20):
+        layer,mask,info=signatures.render_signature((340,100),"Mira Dev",random.Random(seed),options)
+        original,_,base=signatures._render_signature((340,100),"Mira Dev",random.Random(seed),options)
+        seen.add(info["stroke_weight"])
+        assert info["style"]==base["style"] and info["text"]==base["text"]
+        if info["thickness_scale"]>1:
+            assert np.asarray(layer.getchannel("A")).sum()>np.asarray(original.getchannel("A")).sum()*1.1
+            assert layer.getpixel((0,0))[3]==0
+            assert np.array_equal(np.asarray(mask)>0,np.asarray(layer.getchannel("A"))>0)
+        else:assert layer.tobytes()==original.tobytes()
+    assert seen=={"normal","medium","bold"}
+    for weight in ("normal","bold"):
+        fixed=options.model_copy(update={"font_weight":weight})
+        layer,_,info=signatures.render_signature((340,100),"Mira Dev",random.Random(42),fixed)
+        original,_,_=signatures._render_signature((340,100),"Mira Dev",random.Random(42),fixed)
+        assert info["stroke_weight"]==weight and layer.tobytes()==original.tobytes()

@@ -50,6 +50,11 @@ depend on script-font availability. Independent seeded parameters vary body/cap
 ratio, compression, spacing/overlap, slant, baseline rise, corner tension and
 terminal topology. Endings include no decoration, crossbar, understrike, upper
 oval, lower oval and terminal spiral. Dots and letter crossbars retain pen lifts.
+
+Auto pen weight also samples normal (60%), medium (25%) and bold (15%) ink.
+Weight uses a separate seeded stream and smooth alpha expansion, preserving the
+letter sequence, layout, ink color and transparent background. Explicit normal
+or bold choices stay fixed. Metadata records `stroke_weight` and `thickness_scale`.
 Metadata records these axes and `engine: pen-paths-v1`, `generator_version:
 signature-v3`, together with the actual drawn letter sequence.
 

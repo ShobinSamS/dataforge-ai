@@ -3,7 +3,7 @@ import random
 import re
 from functools import lru_cache
 import numpy as np
-from PIL import Image,ImageDraw
+from PIL import Image,ImageDraw,ImageFilter
 from .fonts import installed_fonts,load_font,cursive_font_id,resolve_font_weight
 from .schemas import RuleOptions
 from .signature_strokes import PEN_STYLES,render_pen_signature
@@ -197,6 +197,28 @@ def _fit_expressive(size,plan,rng,style,scale):
 
 
 def render_signature(size,value,rng:random.Random,style:RuleOptions):
+    # Use an independent seeded stream so pen weight cannot change the chosen
+    # letters, layout or ornaments, and explicit weight choices remain fixed.
+    weight_rng=random.Random();weight_rng.setstate(rng.getstate())
+    weight_rng=random.Random(weight_rng.getrandbits(64)^0x5349474E)
+    weight,factor=weight_rng.choices((("normal",1.0),("medium",1.65),("bold",2.4)),weights=(60,25,15))[0] if style.font_weight=="auto" else (style.font_weight,1.0)
+    layer,mask,info=_render_signature(size,value,rng,style)
+    if factor>1:
+        import cv2
+        alpha=layer.getchannel("A")
+        core=(np.asarray(alpha)>100).astype(np.uint8)
+        distances=cv2.distanceTransform(core,cv2.DIST_L2,3)
+        nib=float(np.percentile(distances[core>0],70)) if np.any(core) else 1
+        radius=max(1,round(3*min(size[1]*.015,max(.6,nib))*(factor-1)))
+        # Grow ink at 3x resolution, then antialias back into the same region.
+        alpha=alpha.resize((size[0]*3,size[1]*3),Image.Resampling.BICUBIC).filter(ImageFilter.MaxFilter(radius*2+1)).resize(size,Image.Resampling.LANCZOS)
+        layer=Image.new("RGBA",size,style.text_color);layer.putalpha(alpha)
+        mask=alpha.point(lambda p:255 if p else 0)
+    info.update(stroke_weight=weight,thickness_scale=factor)
+    return layer,mask,info
+
+
+def _render_signature(size,value,rng:random.Random,style:RuleOptions):
     w,h=size;scale=3 if w*h<=400_000 else 1
     W,H=w*scale,h*scale
     plan=signature_plan(value,rng,style)
