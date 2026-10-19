@@ -144,3 +144,9 @@ shaping and the supplied emblem/mascot artwork are not replicated. The shield
 and ray motifs and optional signature are generated geometry. Seal6's printed
 wording is used as provided, with newly generated handwriting and date/reference
 values for comparison; default datasets still use random entities and wording.
+
+**Ink finish → Natural imperfections** now adds patchy pad contact, pores,
+chipped outlines and slight deformation to these layouts. Worn is stronger;
+Clean disables the new stage. These controls remain separate from Ink wear
+and overall opacity. The [ink finish guide](ink-finish.md) describes masks,
+local field boxes and the clean/natural/worn comparison gallery.

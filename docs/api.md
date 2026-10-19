@@ -71,6 +71,11 @@ options. `GET /api/signatures/previews` and `/api/signatures/preview` accept the
 same four query parameters; returned preview URLs retain them. The PNG endpoint
 reports the chosen strength in `X-Ink-Opacity`. Seal preview accepts them under
 `options`. Neither preview creates a dataset.
+These assets also accept `ink_finish` (`clean`, `natural`, `worn`; default
+`natural`) and `ink_irregularity` (finite 0–1; default 0.55). Signature preview
+query parameters retain both settings. The PNG response reports `X-Ink-Finish`.
+Finish metadata records defects and transforms; masks reflect the resulting ink.
+See the [ink finish guide](ink-finish.md) for profiles and geometry behavior.
 `rule="literal:Your fictional text"` overrides generated text; empty uses Faker
 or the fictional generator. Natural-language rules are compiled to bounded plans
 by shorthand recognition or local Qwen. Unknown draft rules may be saved, but

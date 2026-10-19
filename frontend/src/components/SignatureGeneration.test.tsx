@@ -55,7 +55,7 @@ it("explains fixed saved styles and previews the batch override without changing
     expect(screen.getByAltText("Fictional gestural signature 1")).toBeTruthy(),
   );
   expect(api).toHaveBeenCalledWith(
-    "/signatures/previews?style=mixed&seed=42&ink_opacity_mode=fixed&ink_opacity=0.3&ink_opacity_min=0.45&ink_opacity_max=1",
+    "/signatures/previews?style=mixed&seed=42&ink_opacity_mode=fixed&ink_opacity=0.3&ink_opacity_min=0.45&ink_opacity_max=1&ink_finish=natural&ink_irregularity=0.55",
   );
   fireEvent.change(screen.getByLabelText("Signature variety for this batch"), {
     target: { value: "template" },

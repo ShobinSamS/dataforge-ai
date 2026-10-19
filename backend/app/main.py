@@ -349,17 +349,20 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     def signature_ink_options(ink_opacity_mode: Literal["random","fixed"]="random",
                               ink_opacity: float=Query(1,ge=.05,le=1,allow_inf_nan=False),
                               ink_opacity_min: float=Query(.45,ge=.05,le=1,allow_inf_nan=False),
-                              ink_opacity_max: float=Query(1,ge=.05,le=1,allow_inf_nan=False)):
+                              ink_opacity_max: float=Query(1,ge=.05,le=1,allow_inf_nan=False),
+                              ink_finish: Literal["clean","natural","worn"]="natural",
+                              ink_irregularity: float=Query(.55,ge=0,le=1,allow_inf_nan=False)):
         return RuleOptions(ink_opacity_mode=ink_opacity_mode,ink_opacity=ink_opacity,
-                           ink_opacity_min=ink_opacity_min,ink_opacity_max=ink_opacity_max)
+                           ink_opacity_min=ink_opacity_min,ink_opacity_max=ink_opacity_max,
+                           ink_finish=ink_finish,ink_irregularity=ink_irregularity)
 
     @app.get("/api/signatures/previews")
     def signature_previews(style: SignatureStyle="mixed",seed: int=Query(42,ge=0,le=2**31-1),
                            ink: RuleOptions=Depends(signature_ink_options)):
         names=("Arun Kumar","Mira Dev","Rohan Sen","Nila Shah","Dev Mehra","Sara Das")
-        opacity_query=urlencode({key:value for key,value in ink.model_dump().items() if key.startswith("ink_opacity")})
+        opacity_query=urlencode({key:value for key,value in ink.model_dump().items() if key.startswith("ink_")})
         return [{"style":signature_plan(name,random.Random((seed+i)%(2**31)),RuleOptions(signature_style=style))["style"],
-                 "url":f"/api/signatures/preview?style={style}&seed={(seed+i)%(2**31)}&name_index={i}&v=4&{opacity_query}"} for i,name in enumerate(names)]
+                 "url":f"/api/signatures/preview?style={style}&seed={(seed+i)%(2**31)}&name_index={i}&v=5&{opacity_query}"} for i,name in enumerate(names)]
 
     @app.post("/api/seals/preview")
     def seal_preview(body: SealPreviewRequest):
@@ -377,7 +380,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
             options=ink.model_copy(update={"signature_style":style,"text_color":"#173574"})
             layer,_,info=render_signature((480,160),names[name_index],random.Random(seed),options)
             buffer=io.BytesIO();layer.save(buffer,format="PNG")
-        return Response(buffer.getvalue(),media_type="image/png",headers={"Cache-Control":"no-store","X-Signature-Style":info["style"],"X-Ink-Opacity":str(info["opacity"])})
+        return Response(buffer.getvalue(),media_type="image/png",headers={"Cache-Control":"no-store","X-Signature-Style":info["style"],"X-Ink-Opacity":str(info["opacity"]),"X-Ink-Finish":info['ink_finish']['mode']})
 
     @app.post("/api/jobs",status_code=201)
     def generate(body: GenerationConfig):

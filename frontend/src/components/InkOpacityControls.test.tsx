@@ -26,6 +26,26 @@ for (const kind of ["signature", "seal"] as const) {
     expect(
       (screen.getByLabelText("Ink opacity") as HTMLSelectElement).value,
     ).toBe("random");
+    expect(
+      (screen.getByLabelText("Ink finish") as HTMLSelectElement).value,
+    ).toBe("natural");
+    fireEvent.change(screen.getByLabelText("Ink finish"), {
+      target: { value: "worn" },
+    });
+    expect(change).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        confirmed: false,
+        rule_options: expect.objectContaining({ ink_finish: "worn" }),
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("Imperfection strength"), {
+      target: { value: "80" },
+    });
+    expect(change).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        rule_options: expect.objectContaining({ ink_irregularity: 0.8 }),
+      }),
+    );
     fireEvent.change(screen.getByLabelText("Minimum ink opacity"), {
       target: { value: "60" },
     });

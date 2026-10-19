@@ -23,7 +23,7 @@ CASES = json.loads((FIXTURES / "sign7-cases.json").read_text(encoding="utf-8"))
 def test_reference_compositions_retain_reviewed_geometry_and_connected_ink(case):
     index = CASES.index(case)
     options = RuleOptions(signature_style=case["style"], font_weight="normal", font_id="arial",
-                          ink_opacity_mode="fixed", ink_opacity=1)
+                          ink_opacity_mode="fixed", ink_opacity=1,ink_finish="clean")
     layer, mask, info = render_signature((440, 150), case["name"], random.Random(case["seed"]), options)
     thumbnail = np.asarray(mask.resize((220, 75), Image.Resampling.BOX)) >= 128
     with Image.open(FIXTURES / "sign7-geometry.png") as baseline:

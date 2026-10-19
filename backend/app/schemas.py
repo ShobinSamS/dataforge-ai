@@ -55,6 +55,8 @@ class RuleOptions(Contract):
     ink_opacity: float = Field(default=1,ge=.05,le=1,allow_inf_nan=False)
     ink_opacity_min: float = Field(default=.45,ge=.05,le=1,allow_inf_nan=False)
     ink_opacity_max: float = Field(default=1,ge=.05,le=1,allow_inf_nan=False)
+    ink_finish: Literal["clean","natural","worn"] = "natural"
+    ink_irregularity: float = Field(default=.55,ge=0,le=1,allow_inf_nan=False)
     seal_style: Literal["random","ring","round","double_ring","oval","badge","square","rectangle","professional","form","dated","text","attestation","corporate","form_block","nameplate"] = "random"
     seal_color: Literal["random","red","blue","green","purple","black","brown","mixed"] = "random"
     seal_text_mode: Literal["random","static","custom"] = "random"

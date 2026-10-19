@@ -29,15 +29,18 @@ def reference_font_fingerprint():
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--update-baseline',action='store_true')
+    parser.add_argument('--finish',choices=('clean','natural','worn'),default='natural')
     args=parser.parse_args()
     out=ROOT/'artifacts/seal-reference-cases';out.mkdir(parents=True,exist_ok=True)
     cases=json.loads(CASES.read_text(encoding='utf-8'))
     gallery=Image.new('RGB',(1680,1860),'#eaf0f4');draw=ImageDraw.Draw(gallery)
     baseline=Image.new('L',(660,660));records=[]
     for i,case in enumerate(cases):
-        options=RuleOptions(font_id=resolve_font_weight('auto','normal'),ink_opacity_mode='fixed',ink_opacity=1,**case['options'])
+        options=RuleOptions(font_id=resolve_font_weight('auto','normal'),ink_opacity_mode='fixed',ink_opacity=1,ink_finish=args.finish,**case['options'])
         layer,mask,info=render_seal(tuple(case['size']),plan_seal_content(options,case['seed']),random.Random(case['seed']),options)
         layer.save(out/f"{case['id']}.png")
+        if args.update_baseline:
+            _,mask,_=render_seal(tuple(case['size']),plan_seal_content(options,case['seed']),random.Random(case['seed']),options.model_copy(update={'ink_finish':'clean'}))
         thumbnail=ImageOps.pad(mask,(220,220),method=Image.Resampling.BOX,color=0).point(lambda p:255 if p>=128 else 0)
         baseline.paste(thumbnail,(i%3*220,i//3*220))
         x,y=i%3*560+10,i//3*620+10

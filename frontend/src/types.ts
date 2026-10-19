@@ -75,6 +75,8 @@ export interface RuleOptions {
   ink_opacity?: number;
   ink_opacity_min?: number;
   ink_opacity_max?: number;
+  ink_finish?: "clean" | "natural" | "worn";
+  ink_irregularity?: number;
   seal_style?:
     | "random"
     | "ring"

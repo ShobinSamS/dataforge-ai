@@ -18,7 +18,7 @@ CASES=json.loads((FIXTURES/'seal-reference-cases.json').read_text(encoding='utf-
 
 @pytest.mark.parametrize('case',CASES,ids=[case['id'] for case in CASES])
 def test_reference_seal_geometry_wording_and_transparency(case):
-    options=RuleOptions(font_id=resolve_font_weight('auto','normal'),ink_opacity_mode='fixed',ink_opacity=1,**case['options'])
+    options=RuleOptions(font_id=resolve_font_weight('auto','normal'),ink_opacity_mode='fixed',ink_opacity=1,ink_finish='clean',**case['options'])
     content=plan_seal_content(options,case['seed'])
     layer,mask,info=render_seal(tuple(case['size']),content,random.Random(case['seed']),options)
     same,_,same_info=render_seal(tuple(case['size']),content,random.Random(case['seed']),options)

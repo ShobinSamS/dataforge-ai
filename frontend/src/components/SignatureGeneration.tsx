@@ -29,6 +29,8 @@ export default function SignatureGeneration({
     ink_opacity: String(options?.ink_opacity ?? 1),
     ink_opacity_min: String(options?.ink_opacity_min ?? 0.45),
     ink_opacity_max: String(options?.ink_opacity_max ?? 1),
+    ink_finish: options?.ink_finish || "natural",
+    ink_irregularity: String(options?.ink_irregularity ?? 0.55),
   }).toString();
   const previews = useQuery({
     queryKey: ["signature_previews", style, seed, opacityQuery],
@@ -86,9 +88,9 @@ export default function SignatureGeneration({
         <>
           <p className="field-hint">
             Fictional style examples · first signature region · previews are
-            separate from dataset samples. Opacity uses this region's saved
-            settings. Change the range or choose fixed ink in Template editor →
-            Rendering style and cleanup.
+            separate from dataset samples. Ink finish and opacity use this
+            region's saved settings. Change them in Template editor → Rendering
+            style and cleanup.
           </p>
           {previews.isLoading && <p>Loading signature previews…</p>}
           {previews.error && <p role="alert">{previews.error.message}</p>}

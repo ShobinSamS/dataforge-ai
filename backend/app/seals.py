@@ -254,6 +254,10 @@ def render_seal(size,content,rng,style):
           'lines':lines,'text':seal_text({**content,'lines':lines}),'engine':'seal-v2',**layout_info}
     if 'embedded_signature' in layout_info:info['text']+='\n'+layout_info['embedded_signature']['text']
     from .ink import apply_ink_opacity
+    from .ink_finish import apply_ink_finish,transform_local_boxes
+    layer,mask,finish=apply_ink_finish(layer,rng,style,"seal")
+    info=transform_local_boxes(info,finish,size)
+    info['ink_finish']=finish
     layer,mask,opacity_info=apply_ink_opacity(layer,rng,style,"seal")
     info.update(opacity_info)
     return layer,mask,info

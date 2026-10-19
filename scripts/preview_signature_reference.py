@@ -22,6 +22,7 @@ CASES = ROOT / "tests/fixtures/sign7-cases.json"
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--update-baseline", action="store_true", help="Replace the reviewed generated geometry fixture")
+    parser.add_argument("--finish",choices=("clean","natural","worn"),default="natural")
     args = parser.parse_args()
     out = ROOT / "artifacts/sign7-regression"
     out.mkdir(parents=True, exist_ok=True)
@@ -32,8 +33,10 @@ def main():
     baseline = Image.new("L", (660, 375))
     for index, case in enumerate(cases):
         options = RuleOptions(signature_style=case["style"], text_color=("#713446", "#131e25", "#183776")[index % 3],
-                              ink_opacity_mode="fixed", ink_opacity=1, font_weight="normal", font_id="arial")
+                              ink_opacity_mode="fixed", ink_opacity=1, font_weight="normal", font_id="arial",ink_finish=args.finish)
         layer, mask, info = render_signature((440, 150), case["name"], random.Random(case["seed"]), options)
+        if args.update_baseline:
+            _,mask,_=render_signature((440,150),case['name'],random.Random(case['seed']),options.model_copy(update={'ink_finish':'clean'}))
         thumbnail = mask.resize((220, 75), Image.Resampling.BOX).point(lambda p: 255 if p >= 128 else 0)
         baseline.paste(thumbnail, (index % 3 * 220, index // 3 * 75))
         layer.save(out / f'{case["cell"]}.png')

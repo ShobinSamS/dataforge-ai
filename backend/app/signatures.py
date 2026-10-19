@@ -8,6 +8,7 @@ from .fonts import installed_fonts,load_font,cursive_font_id,resolve_font_weight
 from .schemas import RuleOptions
 from .signature_strokes import PEN_STYLES,render_pen_signature
 from .ink import apply_ink_opacity
+from .ink_finish import apply_ink_finish
 
 EXPRESSIVE=("tall_initial","compact","angular","looped","sweeping")
 STYLES=("name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish")+EXPRESSIVE+PEN_STYLES
@@ -216,8 +217,9 @@ def render_signature(size,value,rng:random.Random,style:RuleOptions):
         alpha=alpha.resize((size[0]*3,size[1]*3),Image.Resampling.BICUBIC).filter(ImageFilter.MaxFilter(radius*2+1)).resize(size,Image.Resampling.LANCZOS)
         layer=Image.new("RGBA",size,style.text_color);layer.putalpha(alpha)
         mask=alpha.point(lambda p:255 if p else 0)
+    layer,mask,finish=apply_ink_finish(layer,rng,style,"signature")
     layer,mask,opacity_info=apply_ink_opacity(layer,rng,style,"signature")
-    info.update(stroke_weight=weight,thickness_scale=factor,**opacity_info)
+    info.update(stroke_weight=weight,thickness_scale=factor,ink_finish=finish,**opacity_info)
     return layer,mask,info
 
 

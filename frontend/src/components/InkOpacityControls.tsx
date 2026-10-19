@@ -13,6 +13,41 @@ export default function InkOpacityControls({
   return (
     <>
       <label>
+        Ink finish
+        <select
+          value={options.ink_finish || "natural"}
+          onChange={(e) =>
+            set({ ink_finish: e.target.value as RuleOptions["ink_finish"] })
+          }
+        >
+          <option value="clean">Clean</option>
+          <option value="natural">Natural imperfections</option>
+          <option value="worn">Worn / dry ink</option>
+        </select>
+      </label>
+      {(options.ink_finish || "natural") !== "clean" && (
+        <label>
+          Imperfection strength ·{" "}
+          {Math.round((options.ink_irregularity ?? 0.55) * 100)}%
+          <input
+            aria-label="Imperfection strength"
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round((options.ink_irregularity ?? 0.55) * 100)}
+            onChange={(e) =>
+              set({ ink_irregularity: Number(e.target.value) / 100 })
+            }
+          />
+        </label>
+      )}
+      <p className="field-hint">
+        Natural adds uneven pressure, small distortions and occasional ink
+        breaks. Worn adds stronger defects. Each sample varies reproducibly with
+        its seed. For a pristine seal, also set Ink wear to zero.
+      </p>
+      <label>
         Ink opacity
         <select
           value={mode}

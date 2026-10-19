@@ -300,9 +300,14 @@ For both signatures and seals, **Ink opacity → Random per sample** is enabled
 by default (45–100%). Change the minimum/maximum sliders for a different range,
 or select **Fixed opacity** to keep all impressions at a chosen strength.
 This varies ink transparency independently of the existing random thickness.
+**Ink finish → Natural imperfections** is now the default for both asset types.
+Use the **Imperfection strength** slider for subtle or stronger flaws, **Worn /
+dry ink** for more damage, or **Clean** to disable the new finish. Signatures
+vary pressure, line smoothness and dry gaps; seals vary contact, pores and edge
+wear. See the [ink finish guide](docs/ink-finish.md) and its comparison command.
 Save and review the region, then generate a **new** dataset to see changes;
 existing output images are retained. Generation studio signature previews use
-the first signature region's saved opacity settings.
+the first signature region's saved finish and opacity settings.
 Signature styles also include **broad enclosing return** and **overlapping
 capitals and compact letters**, adapted from the supplied sign7 sheet. See the
 [signature reference tests](docs/signature-research.md#sign7-regression-cases)

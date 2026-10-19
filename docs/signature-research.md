@@ -123,3 +123,9 @@ To deliberately replace the visual baseline after reviewing a renderer change,
 run `python -m scripts.preview_signature_reference --update-baseline`, inspect
 the gallery and review the fixture diff. Do not update it just to silence a
 failing geometry test. The supplied JPEG remains outside the repository.
+
+Natural ink finishing is now enabled by default: local pressure/nib variation,
+small irregular deviations and dry gaps soften the ideal pen paths. Choose
+Clean to inspect the underlying letter geometry. Reference geometry tests use
+Clean, and the [ink finish tests and comparison](ink-finish.md) check the damaged
+output separately without replacing the supplied names or intended letters.

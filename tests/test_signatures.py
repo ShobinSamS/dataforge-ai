@@ -28,7 +28,7 @@ def test_signature_forms_are_seeded_transparent_and_record_visible_letters(famil
 
 @pytest.mark.parametrize("family",["letter_wave","monogram","flourish"])
 def test_added_pen_designs_join_actual_letter_ink(monkeypatch,family):
-    style=RuleOptions(signature_style=family)
+    style=RuleOptions(signature_style=family,ink_finish="clean")
     decorated,_,_=signatures.render_signature((430,112),"Arun Kumar",random.Random(42),style)
     monkeypatch.setattr(signatures,"_curve",lambda *args,**kwargs:None)
     lettering,_,_=signatures.render_signature((430,112),"Arun Kumar",random.Random(42),style)
@@ -137,7 +137,7 @@ def test_live_previews_validate_inputs_and_create_no_dataset(tmp_path):
 
 @pytest.mark.parametrize("family",["minimal","tall_initial","name"])
 def test_random_pen_weight_is_seeded_thicker_and_keeps_lettering(family):
-    options=RuleOptions(signature_style=family,text_color="#173574",ink_opacity_mode="fixed",ink_opacity=1)
+    options=RuleOptions(signature_style=family,text_color="#173574",ink_opacity_mode="fixed",ink_opacity=1,ink_finish="clean")
     # Compare with the unweighted rendering using exactly the same RNG state.
     seen=set()
     for seed in range(20):
