@@ -175,7 +175,22 @@ def analysis_router(sessions,root):
 
     @router.get("/document-analysis/capabilities")
     def capabilities():
-        return {**vision_ocr.capabilities(),"pii_local_qwen":True,"pii_regex":True,"human_review_required":True}
+        from .visual_regions import FACE_MODEL
+        return {**vision_ocr.capabilities(),"pii_local_qwen":True,"pii_regex":True,"human_review_required":True,
+                "visual_regions":{"qr":"opencv","barcode":"stripe_geometry","photo":"yunet_face_estimate",
+                                  "face_model_bundled":FACE_MODEL.is_file(),"payload_decode":False}}
+
+    @router.post("/templates/{id_}/detect-visual-regions")
+    def detect_visual(id_:str):
+        from .visual_regions import detect_visual_regions
+        image=image_for(id_)
+        if not CPU_LOCK.acquire(blocking=False):
+            raise HTTPException(409,"CPU worker is busy; retry visual detection after the current workload")
+        try:
+            candidates,warnings=detect_visual_regions(image)
+            return {"candidates":candidates,"warnings":warnings,"engine":"opencv-local"}
+        finally:
+            CPU_LOCK.release()
 
     @router.post("/templates/{id_}/analyze-pii")
     def analyze_pii(id_:str,body:AnalysisRequest):

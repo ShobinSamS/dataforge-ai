@@ -150,3 +150,8 @@ chipped outlines and slight deformation to these layouts. Worn is stronger;
 Clean disables the new stage. These controls remain separate from Ink wear
 and overall opacity. The [ink finish guide](ink-finish.md) describes masks,
 local field boxes and the clean/natural/worn comparison gallery.
+
+Rubber stamp presets are available in the same controls: Received, Paid,
+Approved, Rejected, Copy and Confidential. They set static wording and a double
+rectangular border while preserving opacity and ink finish. Stamps retain the
+`seal` export class. See [visual regions and stamps](visual-regions.md).

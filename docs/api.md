@@ -13,6 +13,7 @@ is `[x, y, width, height]`, integer, inside the page. One page per template.
 | GET | `/api/system` | Real RAM, OCR configuration and feature availability |
 | GET | `/api/fonts` | Installed font IDs/labels; no filesystem paths |
 | POST | `/api/templates/{id}/font-match` | `{region}` → region with local font/size/color selection and similarity metadata; optional configured local OCR if source text empty |
+| POST | `/api/templates/{id}/detect-visual-regions` | Read-only local QR/barcode/photo proposals; `{candidates, engine, warnings}`, unconfirmed `origin:"visual"` boxes. CPU busy: 409. See [visual regions](visual-regions.md) |
 | POST | `/api/document-rules/interpret` | `{region, engine:"auto"\|"local_llm"}` → validated region, explanation, engine, warnings and format references; clears confirmation |
 | GET | `/api/portraits/capabilities` | Offline/upload support and online-provider configuration status |
 | POST | `/api/portraits` | Multipart `file`, `rights_confirmed=true`, optional `license_note`/`attribution`; approved local image pool asset |

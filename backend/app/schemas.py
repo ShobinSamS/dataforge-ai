@@ -134,7 +134,7 @@ class Region(Contract):
     rule_resolved_hash: str = Field(default="",max_length=64)
     source_font: str = Field(default="",max_length=150)
     source_font_size: float | None = Field(default=None,gt=0,le=1000)
-    origin: Literal["manual","ocr","pii"] = "manual"
+    origin: Literal["manual","ocr","pii","visual"] = "manual"
     pii_category: Literal["","person","address","email","phone","date","identifier","financial","organization","medical","other"] = ""
     pii_value: str = Field(default="",max_length=400)
     pii_reason: str = Field(default="",max_length=500)

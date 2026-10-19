@@ -65,6 +65,7 @@ import type {
 import { fieldTypes } from "./types";
 import RegionEditor from "./RegionEditor";
 import DocumentAnalysis from "./components/DocumentAnalysis";
+import VisualRegions from "./components/VisualRegions";
 import TemplateCard from "./components/TemplateCard";
 import DeleteDataset from "./components/DeleteDataset";
 import SignatureGeneration from "./components/SignatureGeneration";
@@ -693,6 +694,16 @@ export default function App() {
                       : "Review needed"}
                   </Badge>
                 </div>
+                <VisualRegions
+                  key={`visual-${selectedTemplate.id}`}
+                  template={selectedTemplate}
+                  regions={regions}
+                  onApply={(rs) => {
+                    setRegions(rs);
+                    setPrivacy(false);
+                    setSelected("");
+                  }}
+                />
                 <DocumentAnalysis
                   key={selectedTemplate.id}
                   template={selectedTemplate}
@@ -811,7 +822,13 @@ export default function App() {
                             }
                           >
                             {fieldTypes.map((t) => (
-                              <option key={t}>{t}</option>
+                              <option key={t} value={t}>
+                                {t === "seal"
+                                  ? "seal / stamp"
+                                  : t === "portrait"
+                                    ? "portrait / photo"
+                                    : t}
+                              </option>
                             ))}
                           </select>
                         </label>
@@ -1019,7 +1036,7 @@ export default function App() {
                       ],
                       [
                         "seals",
-                        "Fictional seals",
+                        "Synthetic seals / stamps",
                         "Varied wording, layouts and ink",
                       ],
                       ["qr_codes", "QR codes", "Synthetic record payload"],

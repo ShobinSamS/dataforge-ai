@@ -145,7 +145,7 @@ export interface Region {
   rule_resolved_hash?: string;
   source_font?: string;
   source_font_size?: number | null;
-  origin?: "manual" | "ocr" | "pii";
+  origin?: "manual" | "ocr" | "pii" | "visual";
   pii_category?: string;
   pii_value?: string;
   pii_reason?: string;

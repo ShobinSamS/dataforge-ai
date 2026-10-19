@@ -42,6 +42,47 @@ export default function SealControls({
   return (
     <>
       <label>
+        Rubber stamp preset
+        <select
+          value=""
+          onChange={(e) => {
+            if (!e.target.value) return;
+            change({
+              seal_text_mode: "static",
+              literal_text: null,
+              seal_text: e.target.value,
+              seal_subtext: "",
+              seal_bottom_text: "",
+              seal_inner_top_text: "",
+              seal_inner_bottom_text: "",
+              seal_style: "rectangle",
+              seal_border: "double",
+              seal_symbol: "none",
+              seal_center_motif: "none",
+              seal_embedded_signature: false,
+            });
+          }}
+        >
+          <option value="">Choose a preset or configure below</option>
+          {[
+            "RECEIVED",
+            "PAID",
+            "APPROVED",
+            "REJECTED",
+            "COPY",
+            "CONFIDENTIAL",
+          ].map((v) => (
+            <option key={v}>{v}</option>
+          ))}
+        </select>
+      </label>
+      <p className="field-hint">
+        Seals and rubber stamps use the same generator. Presets set static
+        wording; choose random or custom wording below for variations.
+        Transparent ink, wear and random opacity also apply to stamps. Draw a
+        new seal / stamp region to add one where the template has none.
+      </p>
+      <label>
         Seal wording
         <select
           value={mode}

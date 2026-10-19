@@ -253,6 +253,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
                 "ocr":{"configured":settings.ocr_engine,"paddle_local_models":bool(settings.paddle_det_dir and settings.paddle_rec_dir),
                        "tesseract":bool(settings.tesseract_cmd or shutil.which("tesseract"))},
                 "capabilities":{"procedural":True,"pdf_text":True,"yolo":True,"coco":True,"ocr_export":True,
+                                "visual_region_proposals":True,"synthetic_stamps":True,
                                 "text_datasets":True,"llm":True,"local_llm_adapter":True,"document_rule_planner":True,"portrait_fields":True,"erase_regions":True,"font_matching":True,"custom_pattern_templates":True,"qr_controls":True,"pii_suggestions":True,"ruled_table_extraction":True,"transparent_codes":True,"trocr":any(vision_capabilities()["models"].values()),"diffusion":False,"presidio":False,"mcp":False,"rag":False},
                 "privacy":"Template images and OCR stay local. Only explicit provider portrait downloads use the internet. Detection requires manual review."}
 

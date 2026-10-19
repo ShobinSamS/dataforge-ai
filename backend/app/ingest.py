@@ -11,6 +11,7 @@ from .config import settings
 from .privacy import classify
 from .resources import CPU_LOCK
 from .schemas import Region
+from .visual_regions import detect_visual_regions, merge_upload_regions
 
 MAX_PIXELS = 16_000_000
 MAX_REGIONS = 200
@@ -144,6 +145,19 @@ def ingest(content: bytes, suffix: str, dest: Path) -> tuple[int, int, list, str
         regions, engine, warnings = ocr(image)
     if len(regions) >= MAX_REGIONS:
         warnings.append("Analysis limited to 200 text groups. Inspect remaining content manually.")
+    if CPU_LOCK.acquire(blocking=False):
+        try:
+            objects, notices = detect_visual_regions(image)
+            regions = merge_upload_regions(regions, objects, MAX_REGIONS)
+            warnings.extend(notices)
+            if objects and len(regions) >= MAX_REGIONS:
+                warnings.append("Combined OCR and visual boxes limited to 200. Inspect the remaining page manually.")
+        except Exception:
+            warnings.append("Visual detection could not finish. Retry Find visual regions in the editor or draw boxes manually.")
+        finally:
+            CPU_LOCK.release()
+    else:
+        warnings.append("Visual detection skipped while the CPU worker was busy. Use Find visual regions in the editor later.")
     dest.parent.mkdir(parents=True, exist_ok=True)
     image.save(dest, format="PNG")  # strips EXIF and source metadata
     return image.width, image.height, regions, engine, warnings

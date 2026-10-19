@@ -658,3 +658,15 @@ Storage is local by default under `data/`. Keep the app bound to loopback; this
 proof of concept does not provide network-facing authentication. Uploaded real
 documents and pasted source texts remain sensitive even when generated outputs
 are fictional. No automatic model downloads or cloud-inference fallback occur.
+
+## Automatic visual boxes and rubber stamps
+
+Uploads now propose QR, barcode and face-based photo boxes alongside OCR text.
+Use **Find visual regions** to scan an older template. Select a proposed box to
+change its label/type, resize it or use **Delete region**. Photo bounds are estimates
+and photos without a detected face need manual boxes. Save after reviewing.
+
+To add a stamp, draw a box, choose **seal / stamp**, then open **Rendering style
+and cleanup → Rubber stamp preset**. Received, Paid, Approved, Rejected, Copy and
+Confidential presets support random opacity and natural ink flaws. Edit wording
+or use random/custom formats. See [visual box and stamp guide](docs/visual-regions.md).
