@@ -69,8 +69,37 @@ export interface RuleOptions {
     | "minimal"
     | "surname"
     | "split";
-  seal_style?: "random" | "ring" | "round" | "rectangle" | "text";
-  seal_color?: "random" | "red" | "blue" | "green" | "mixed";
+  seal_style?:
+    | "random"
+    | "ring"
+    | "round"
+    | "double_ring"
+    | "oval"
+    | "badge"
+    | "square"
+    | "rectangle"
+    | "professional"
+    | "form"
+    | "dated"
+    | "text";
+  seal_color?:
+    | "random"
+    | "red"
+    | "blue"
+    | "green"
+    | "purple"
+    | "black"
+    | "brown"
+    | "mixed";
+  seal_text_mode?: "random" | "static" | "custom";
+  seal_allow_repeated_words?: boolean;
+  seal_top_format?: string;
+  seal_bottom_format?: string;
+  seal_body_format?: string;
+  seal_bottom_text?: string;
+  seal_border?:
+    "random" | "solid" | "double" | "dotted" | "dashed" | "serrated";
+  seal_symbol?: "random" | "none" | "star" | "diamond" | "rosette" | "monogram";
   seal_text?: string;
   seal_subtext?: string;
   seal_wear?: number;
@@ -142,6 +171,7 @@ export interface Job {
   created_at: string;
 }
 export interface Annotation {
+  seal?: { shape: string; content_mode: string; text: string };
   signature?: { style: string; text: string; engine?: string };
   region_id: string;
   class_id: number;

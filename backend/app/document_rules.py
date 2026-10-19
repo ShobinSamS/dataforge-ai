@@ -85,7 +85,7 @@ def apply_plan(region: Region, plan: RulePlan, preserve_confirmation: bool = Fal
     # A model cannot invent asset IDs or select files; only the user's current approved pool is retained.
     options.portrait_asset_ids=region.rule_options.portrait_asset_ids[:]
     # Typography is selected from the local source/UI, never invented by a model.
-    for key in ("font_id","font_size","text_color","color_mode","font_weight","background_mode","background_color","cleanup_mode","writing_style","code_background","signature_style","seal_style","seal_color","seal_text","seal_subtext","seal_wear"):
+    for key in ("font_id","font_size","text_color","color_mode","font_weight","background_mode","background_color","cleanup_mode","writing_style","code_background","signature_style",*(key for key in RuleOptions.model_fields if key.startswith("seal_"))):
         setattr(options,key,getattr(region.rule_options,key))
     if plan.kind not in {"text","identifier","qr","barcode"}:
         options.identifier_pattern="";options.character_length=None

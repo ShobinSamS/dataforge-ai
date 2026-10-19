@@ -1017,7 +1017,11 @@ export default function App() {
                         "Fictional signatures",
                         "Lettering and connected pen designs",
                       ],
-                      ["seals", "Fictional seals", "Clearly marked SAMPLE"],
+                      [
+                        "seals",
+                        "Fictional seals",
+                        "Varied wording, layouts and ink",
+                      ],
                       ["qr_codes", "QR codes", "Synthetic record payload"],
                       ["barcodes", "Barcodes", "Code 128 synthetic IDs"],
                     ] as const
@@ -1367,6 +1371,18 @@ export default function App() {
                           {s.annotations
                             .filter((a) => a.signature)
                             .map((a) => a.signature!.style.replaceAll("_", " "))
+                            .join(", ")}
+                        </p>
+                      )}
+                      {s.annotations.some((a) => a.seal) && (
+                        <p>
+                          Seal:{" "}
+                          {s.annotations
+                            .filter((a) => a.seal)
+                            .map(
+                              (a) =>
+                                `${a.seal!.shape} · ${a.seal!.content_mode}`,
+                            )
                             .join(", ")}
                         </p>
                       )}

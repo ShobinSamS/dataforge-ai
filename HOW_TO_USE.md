@@ -28,17 +28,17 @@ This catalog describes the features currently implemented in this workspace.
 
 ## 01 · Start and stop
 
-If DataForge is already running, open or refresh the app. Do not start a second
-copy on the same ports.
+If DataForge is already running, open or refresh the app. The launcher reuses
+its existing servers and never starts a second API worker on the same port.
 
 From PowerShell in the project folder:
 
 ```powershell
 # First-time dependency setup only:
-powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
+npm.cmd run setup
 
 # Start the app:
-powershell -ExecutionPolicy Bypass -File .\scripts\start.ps1
+npm.cmd start
 ```
 
 The launcher starts the API on port **8000**, the interface on **5173**, and opens
@@ -283,7 +283,12 @@ than one is installed, uses the dataset seed, and includes undecorated samples.
 Existing fields that explicitly saved the old name/flourish style keep that selection;
 choose Mixed to obtain all families. Signature annotation text records the actual
 visible letters rather than always storing the full generated name. Seals support
-ring/round/rectangle/text shapes, red/blue/green/mixed ink, editable text and ink wear.
+11 shapes, six ink families, top/body/bottom text, configurable borders and ink wear.
+Seal wording defaults to **Random per sample**. Choose **Static** for a fixed
+heading and multiline body, or **Custom** for generated placeholders. Enable
+**Allow repeated words** only when matching arc text or repeated phrases are
+intentional. Use **Preview seal variation** to inspect both the pixels and the
+actual generated wording. See the [seal format catalog](docs/seals.md) for examples.
 Original seals are removed first using the selected full-region cleanup.
 Choose **English cursive font** for synthetic handwriting; installed script fonts are
 used without tracing a writer. QR and barcode light backgrounds are transparent by

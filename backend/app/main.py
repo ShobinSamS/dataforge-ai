@@ -2,6 +2,7 @@
 import asyncio
 import json
 import io
+import base64
 import random
 import logging
 import threading
@@ -35,6 +36,7 @@ from .qr_capacity import qr_preflight, check_qr_capacity
 from .dataset_delete import dataset_delete_router
 from .signatures import signature_plan,render_signature
 from .schemas import RuleOptions,SignatureStyle
+from .seals import plan_seal_content,render_seal
 
 
 class OnlinePortraitRequest(Contract):
@@ -46,6 +48,15 @@ class OnlinePortraitRequest(Contract):
 
 class FontMatchRequest(Contract):
     region: Region
+
+
+class SealPreviewRequest(Contract):
+    options: RuleOptions = Field(default_factory=RuleOptions)
+    seed: int = Field(default=42,ge=0,le=2**31-1)
+    width: int = Field(default=400,ge=16,le=2048)
+    height: int = Field(default=240,ge=16,le=2048)
+    literal: str | None = Field(default=None,max_length=1000)
+    region_id: str = Field(default="seal",min_length=1,max_length=80)
 
 logging.basicConfig(level=logging.INFO,format='%(asctime)s %(levelname)s %(name)s %(message)s')
 queue_lock = threading.Lock()
@@ -339,6 +350,14 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
         return [{"style":signature_plan(name,random.Random((seed+i)%(2**31)),RuleOptions(signature_style=style))["style"],
                  "url":f"/api/signatures/preview?style={style}&seed={(seed+i)%(2**31)}&name_index={i}&v=3"} for i,name in enumerate(names)]
 
+    @app.post("/api/seals/preview")
+    def seal_preview(body: SealPreviewRequest):
+        content=plan_seal_content(body.options,body.seed,body.region_id,literal=body.literal)
+        with CPU_LOCK:
+            layer,_,metadata=render_seal((body.width,body.height),content,random.Random(body.seed),body.options)
+            buffer=io.BytesIO();layer.save(buffer,format="PNG")
+        return {"image":"data:image/png;base64,"+base64.b64encode(buffer.getvalue()).decode(),"metadata":metadata}
+
     @app.get("/api/signatures/preview")
     def signature_preview(style: SignatureStyle="mixed",seed: int=Query(42,ge=0,le=2**31-1),name_index: int=Query(0,ge=0,le=5)):
         names=("Arun Kumar","Mira Dev","Rohan Sen","Nila Shah","Dev Mehra","Sara Das")
@@ -358,6 +377,11 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
             reviewed_regions=normalize_regions([Region.model_validate(r) for r in t.regions],strict=True)
             check_review(reviewed_regions,t.width,t.height,t.privacy_confirmed)
             check_qr_capacity(reviewed_regions,body)
+            if body.seals:
+                for region in reviewed_regions:
+                    if region.kind=="seal" and region_action(region)=="replace":
+                        literal=region.rule[8:] if region.rule.startswith("literal:") else None
+                        plan_seal_content(region.rule_options,body.seed,region.id,literal)
             reviewed_regions=prepare_typography(Path(t.image_path),reviewed_regions)
             check_assets(reviewed_regions)
             if body.qr_required and not any(region_action(r)=="replace" and r.kind=="qr" for r in reviewed_regions):

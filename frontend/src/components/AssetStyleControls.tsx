@@ -1,4 +1,5 @@
 import type { Region, RuleOptions } from "../types";
+import SealControls from "./SealControls";
 
 export default function AssetStyleControls({
   field,
@@ -156,61 +157,7 @@ export default function AssetStyleControls({
         </>
       )}
       {field.kind === "seal" && (
-        <>
-          <label>
-            Seal shape
-            <select
-              value={options.seal_style || "random"}
-              onChange={(e) =>
-                set({ seal_style: e.target.value as RuleOptions["seal_style"] })
-              }
-            >
-              {["random", "ring", "round", "rectangle", "text"].map((v) => (
-                <option key={v}>{v}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Seal ink
-            <select
-              value={options.seal_color || "random"}
-              onChange={(e) =>
-                set({ seal_color: e.target.value as RuleOptions["seal_color"] })
-              }
-            >
-              {["random", "red", "blue", "green", "mixed"].map((v) => (
-                <option key={v}>{v}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Seal main text
-            <input
-              maxLength={60}
-              value={options.seal_text ?? "SAMPLE OFFICE"}
-              onChange={(e) => set({ seal_text: e.target.value })}
-            />
-          </label>
-          <label>
-            Seal inner text
-            <input
-              maxLength={40}
-              value={options.seal_subtext ?? "RECEIVED"}
-              onChange={(e) => set({ seal_subtext: e.target.value })}
-            />
-          </label>
-          <label>
-            Ink wear
-            <input
-              type="number"
-              min={0}
-              max={0.45}
-              step={0.01}
-              value={options.seal_wear ?? 0.08}
-              onChange={(e) => set({ seal_wear: Number(e.target.value) })}
-            />
-          </label>
-        </>
+        <SealControls field={field} options={options} set={set} />
       )}
     </details>
   );

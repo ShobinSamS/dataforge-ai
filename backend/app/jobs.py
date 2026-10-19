@@ -18,6 +18,15 @@ from .text_jobs import run_text
 logger = logging.getLogger("dataforge.jobs")
 
 
+def snapshot_regions(snapshot):
+    regions=[]
+    for saved in snapshot["regions"]:
+        if saved.get("kind")=="seal" and "seal_text_mode" not in saved.get("rule_options",{}):
+            saved={**saved,"rule_options":{**saved.get("rule_options",{}),"seal_text_mode":"static","seal_allow_repeated_words":True}}
+        regions.append(Region.model_validate(saved))
+    return regions
+
+
 class Worker:
     def __init__(self, sessions, root: Path):
         self.sessions = sessions
@@ -67,7 +76,7 @@ class Worker:
                 indices = set(db.scalars(select(Sample.index).where(Sample.job_id == id_)))
                 hashes = set(db.scalars(select(Sample.sha256).where(Sample.job_id == id_)))
                 previous_seconds = job.metrics.get("elapsed_seconds",0)
-            regions = [Region.model_validate(r) for r in snapshot["regions"]]
+            regions = snapshot_regions(snapshot)
             check_qr_capacity(regions,config)
             expected = len(optional_regions(snapshot["width"],snapshot["height"],regions,config))
             if expected == 0 and not any(r.action=="erase" for r in regions):

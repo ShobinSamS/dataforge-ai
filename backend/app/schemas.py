@@ -4,6 +4,7 @@ from datetime import date
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from .patterns import pattern_parts, pattern_length
+from .seals import validate_seal_format,duplicate_words
 
 
 class Contract(BaseModel):
@@ -50,11 +51,23 @@ class RuleOptions(Contract):
     writing_style: Literal["printed","cursive"] = "printed"
     code_background: Literal["transparent","white"] = "transparent"
     signature_style: SignatureStyle = "mixed"
-    seal_style: Literal["random","ring","round","rectangle","text"] = "random"
-    seal_color: Literal["random","red","blue","green","mixed"] = "random"
-    seal_text: str = Field(default="SAMPLE OFFICE",min_length=1,max_length=60)
-    seal_subtext: str = Field(default="RECEIVED",min_length=1,max_length=40)
+    seal_style: Literal["random","ring","round","double_ring","oval","badge","square","rectangle","professional","form","dated","text"] = "random"
+    seal_color: Literal["random","red","blue","green","purple","black","brown","mixed"] = "random"
+    seal_text_mode: Literal["random","static","custom"] = "random"
+    seal_allow_repeated_words: bool = False
+    seal_text: str = Field(default="SAMPLE OFFICE",max_length=100)
+    seal_subtext: str = Field(default="RECEIVED",max_length=360)
+    seal_bottom_text: str = Field(default="",max_length=100)
+    seal_top_format: str = Field(default="{organization}",max_length=200)
+    seal_bottom_format: str = Field(default="{city} · {state}",max_length=200)
+    seal_body_format: str = Field(default="{department}\n{name}\nREF {reference}",max_length=480)
+    seal_border: Literal["random","solid","double","dotted","dashed","serrated"] = "random"
+    seal_symbol: Literal["random","none","star","diamond","rosette","monogram"] = "random"
     seal_wear: float = Field(default=.08,ge=0,le=.45)
+
+    @field_validator("seal_top_format","seal_bottom_format","seal_body_format")
+    @classmethod
+    def valid_seal_format(cls,value):return validate_seal_format(value)
 
     @field_validator("identifier_pattern")
     @classmethod
@@ -72,6 +85,9 @@ class RuleOptions(Contract):
 
     @model_validator(mode="after")
     def valid_dates(self):
+        if self.seal_text_mode=="static" and not self.seal_allow_repeated_words:
+            duplicates=duplicate_words([self.seal_text,self.seal_subtext,self.seal_bottom_text])
+            if duplicates:raise ValueError("Repeated seal words: "+", ".join(duplicates)+". Enable repeated words if intentional.")
         if self.date_start>self.date_end or self.date_start.year<1900 or self.date_end.year>2100:
             raise ValueError("Date range must be ordered and within 1900–2100")
         if self.identifier_pattern and self.character_length is not None and pattern_length(self.identifier_pattern)!=self.character_length:

@@ -156,10 +156,12 @@ as experimental rather than claiming arbitrary handwritten-table accuracy.
   Run `python -m scripts.preview_signatures` from the project root for a
   reproducible style catalogue and individual transparent PNG examples under
   `artifacts/signature-references/`.
-- Seals support randomized or fixed ring, round, rectangle and text styles,
-  red/blue/green/mixed ink, configurable main/inner text and seeded wear. Ring text
-  follows an oval. The old seal is removed first by full-region cleanup; it is not
-  pasted over. Synthetic provenance stays in exported metadata.
+- Seals support 11 shapes, varied borders, six ink colors and mixed ink, and
+  seeded wear. Wording can be random, static or a custom placeholder format with
+  top/body/bottom text and optional repeated words. Paired arcs follow measured
+  elliptical paths. Preview shows the generated pixels and exact wording.
+  See the [seal catalog](seals.md). Full-region cleanup removes the old seal first;
+  the replacement has a transparent background. Provenance stays in metadata.
 
 ## API additions
 

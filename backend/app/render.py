@@ -1,7 +1,6 @@
 """Seeded fictional values, procedural assets and synchronized pixel/mask geometry."""
 import hashlib
 import io
-import math
 import random
 from datetime import date
 from pathlib import Path
@@ -15,6 +14,7 @@ from .patterns import generate_pattern, SETS
 from .fonts import load_font, native_font_id, resolve_font_weight, cursive_font_id
 from .restoration import restore_region
 from .signatures import render_signature
+from .seals import plan_seal_content,seal_text,render_seal
 
 
 def font(size: int, font_id: str = "auto"):
@@ -34,8 +34,8 @@ def fictional_values(regions: list[Region], seed: int, config: GenerationConfig 
     result = {}
     for region in regions:
         if region.kind=="seal":
-            main=region.rule_options.literal_text or (region.rule[8:] if region.rule.startswith("literal:") else region.rule_options.seal_text)
-            result[region.id]=main+" / "+region.rule_options.seal_subtext
+            literal=region.rule[8:] if region.rule.startswith("literal:") else None
+            result[region.id]=seal_text(plan_seal_content(region.rule_options,seed,region.id,literal))
         elif region.rule_options.literal_text is not None:
             result[region.id]=region.rule_options.literal_text
         elif region.rule.startswith("literal:"):
@@ -77,41 +77,10 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
     elif kind == "seal":
         from .schemas import RuleOptions
         seal_style=style or RuleOptions()
-        palette={"red":(162,35,46,215),"blue":(27,62,153,215),"green":(20,112,68,215)}
-        color=seal_style.seal_color
-        if color in {"random","mixed"}: color=rng.choice(list(palette))
-        ink=palette[color]
-        shape=seal_style.seal_style
-        if shape=="random": shape=rng.choice(["ring","round","rectangle","text"])
-        stroke=max(1,min(w,h)//35)
-        if shape in {"ring","round"}:
-            d.ellipse((2,2,w-3,h-3),outline=ink,width=stroke)
-            if shape=="ring": d.ellipse((7,7,w-8,h-8),outline=ink,width=stroke)
-        elif shape=="rectangle": d.rectangle((2,2,w-3,h-3),outline=ink,width=stroke)
-        texts=value.split(" / ",1) if " / " in value else (seal_style.seal_text,seal_style.seal_subtext)
-        placements=[(texts[1],.53)] if shape=="ring" else list(zip(texts,(.37,.62)))
-        for txt, yy in placements:
-            text_style=seal_style.model_copy(update={"text_color":"#%02x%02x%02x"%ink[:3],"font_size":None,"writing_style":"printed"})
-            if seal_style.seal_color=="mixed":
-                other=palette[rng.choice(list(palette))]
-                text_style.text_color="#%02x%02x%02x"%other[:3]
-            strip,_=asset("text",(max(8,w-16),max(8,int(h*.22))),txt,rng,text_style)
-            layer.alpha_composite(strip,(8,int(h*yy-strip.height/2)))
-        if shape=="ring":
-            # Outer text follows the oval; center text remains readable on small seals.
-            text=texts[0][:40]
-            for index,char in enumerate(text):
-                angle=205+130*index/max(1,len(text)-1)
-                radians=math.radians(angle)
-                tile=Image.new("RGBA",(max(12,h//5),max(12,h//5)))
-                ImageDraw.Draw(tile).text((tile.width/2,tile.height/2),char,font=font(max(6,min(w,h)//11)),fill=ink,anchor="mm")
-                tile=tile.rotate(270-angle,resample=Image.Resampling.BICUBIC,expand=True)
-                layer.alpha_composite(tile,(round(w/2+math.cos(radians)*w*.38-tile.width/2),round(h/2+math.sin(radians)*h*.38-tile.height/2)))
-        if seal_style.seal_wear:
-            pixels=np.array(layer)
-            holes=np.random.default_rng(rng.randrange(2**31)).random((h,w))<seal_style.seal_wear
-            pixels[holes,3]=0
-            layer=Image.fromarray(pixels)
+        texts=value.split(" / ",1) if " / " in value else value.splitlines()
+        content={"top":texts[0] if texts else seal_style.seal_text,"bottom":seal_style.seal_bottom_text,"lines":"\n".join(texts[1:]).splitlines() if len(texts)>1 else seal_style.seal_subtext.splitlines(),"mode":"static"}
+        layer,mask,_=render_seal(size,content,rng,seal_style)
+        return layer,mask
     elif kind == "qr":
         code = qr_code(value,qr_padding)
         code.make(fit=True)
@@ -175,6 +144,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
     asset_provenance={}
     typography={}
     signature_details={}
+    seal_details={}
     for r in enabled:
         x,y,w,h = r.box
         if r.kind=="portrait":
@@ -200,6 +170,11 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
                 if config.signature_style_override:style.signature_style=config.signature_style_override
                 layer,mask,signature_details[r.id]=render_signature((w,h),values[r.id],rng,style)
                 values[r.id]=signature_details[r.id]["text"]
+            elif r.kind=="seal":
+                literal=r.rule[8:] if r.rule.startswith("literal:") else None
+                content=plan_seal_content(style,seed,r.id,literal)
+                layer,mask,seal_details[r.id]=render_seal((w,h),content,rng,style)
+                values[r.id]=seal_details[r.id]["text"]
             else:
                 layer, mask = asset(r.kind, (w,h), values[r.id], rng,style,config.qr_padding)
         image.paste(layer, (x,y), layer)
@@ -244,6 +219,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
             "provenance":"procedural-mask","visibility":round(min(1,visible),4)})
         annotations[-1]["synthetic"]=True
         if r.id in signature_details:annotations[-1]["signature"]=signature_details[r.id]
+        if r.id in seal_details:annotations[-1]["seal"]=seal_details[r.id]
         if r.kind not in {"portrait","signature","seal","qr","barcode"}:
             annotations[-1]["typography"]=typography[r.id]
         if r.id in asset_provenance: annotations[-1]["asset_provenance"]=asset_provenance[r.id]

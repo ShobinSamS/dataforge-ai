@@ -15,15 +15,22 @@ Prerequisites: Python 3.11 or newer, Node.js 20.19+ or 22.12+, and npm. This
 implementation was built/tested here with Python 3.12 and Node.js 24.
 
 ```powershell
-# Run from the cloned project folder:
-powershell -ExecutionPolicy Bypass -File .\scripts\setup.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\start.ps1
+# From the project folder, start both servers with one command:
+npm.cmd start
+
+# First installation only (Python/npm packages use the Internet):
+npm.cmd run setup
 ```
 
 The UI is at **http://127.0.0.1:5173** and OpenAPI at
-**http://127.0.0.1:8000/docs**. Keep the launcher running. Ctrl+C stops its server
-processes. Dependency installation uses the Internet; the application does not
+**http://127.0.0.1:8000/docs**. Keep the launcher running. Ctrl+C stops only its own
+server processes. Already-running DataForge services are reused; unrelated port
+occupants are never stopped. Use `npm.cmd start -- --no-browser` to skip opening a
+browser. Existing PowerShell scripts remain compatible but are no longer required.
+Dependency installation uses the Internet; the application does not
 need network inference or API keys. No model downloads happen during startup.
+Keep Ollama running when using local Qwen. See [seal formats and references](docs/seals.md)
+for random/static wording, custom placeholders and repetition controls.
 The default database is SQLite. No Docker or OCR installation is required for
 the included native-text PDF demonstration.
 

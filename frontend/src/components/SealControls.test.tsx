@@ -1,0 +1,124 @@
+import { afterEach, it, expect, vi } from "vitest";
+import {
+  render,
+  screen,
+  fireEvent,
+  cleanup,
+  waitFor,
+} from "@testing-library/react";
+import SealControls from "./SealControls";
+import { defaultRuleOptions } from "./RegionRuleControls";
+import { post } from "../api";
+import type { Region } from "../types";
+vi.mock("../api", () => ({ post: vi.fn(), api: vi.fn() }));
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
+const field = {
+  id: "seal-a",
+  kind: "seal",
+  rule: "",
+  box: [0, 0, 300, 200],
+} as Region;
+
+it("offers random, static and custom wording with explicit repetition control", () => {
+  const set = vi.fn();
+  const view = render(
+    <SealControls field={field} options={defaultRuleOptions} set={set} />,
+  );
+  expect(
+    (screen.getByLabelText("Seal wording") as HTMLSelectElement).value,
+  ).toBe("random");
+  fireEvent.change(screen.getByLabelText("Seal wording"), {
+    target: { value: "static" },
+  });
+  expect(set).toHaveBeenLastCalledWith({
+    seal_text_mode: "static",
+    literal_text: null,
+  });
+  view.rerender(
+    <SealControls
+      field={field}
+      options={{
+        ...defaultRuleOptions,
+        seal_text_mode: "static",
+        seal_text: "CUSTOM TITLE",
+      }}
+      set={set}
+    />,
+  );
+  expect(
+    (screen.getByLabelText("Seal main text") as HTMLInputElement).value,
+  ).toBe("CUSTOM TITLE");
+  view.rerender(
+    <SealControls
+      field={field}
+      options={{ ...defaultRuleOptions, seal_text_mode: "custom" }}
+      set={set}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("Body format"), {
+    target: { value: "{name}\n{reference}" },
+  });
+  expect(set).toHaveBeenLastCalledWith({
+    seal_body_format: "{name}\n{reference}",
+  });
+  fireEvent.click(screen.getByLabelText("Allow repeated words"));
+  expect(set).toHaveBeenLastCalledWith({ seal_allow_repeated_words: true });
+});
+
+it("previews actual wording and reports validation failures", async () => {
+  const set = vi.fn();
+  vi.mocked(post).mockResolvedValue({
+    image: "data:image/png;base64,fixture",
+    metadata: { shape: "ring", text: "CEDAR LAB\nMIRA DEV" },
+  });
+  render(
+    <SealControls
+      field={field}
+      options={{ ...defaultRuleOptions, seal_text_mode: "custom" }}
+      set={set}
+    />,
+  );
+  fireEvent.click(screen.getByText("Preview seal variation"));
+  await waitFor(() =>
+    expect(screen.getByAltText("Fictional ring seal preview")).toBeTruthy(),
+  );
+  expect(post).toHaveBeenCalledWith(
+    "/seals/preview",
+    expect.objectContaining({
+      region_id: "seal-a",
+      width: 300,
+      height: 200,
+      seed: 42,
+    }),
+  );
+  expect(screen.getByText(/CEDAR LAB/)).toBeTruthy();
+  vi.mocked(post).mockRejectedValue(new Error("Repeated seal words: cedar"));
+  fireEvent.click(screen.getByText("Preview seal variation"));
+  await waitFor(() =>
+    expect(screen.getByRole("alert").textContent).toMatch(
+      /Repeated seal words/,
+    ),
+  );
+});
+
+it("preserves a literal heading when editing other seal settings", () => {
+  const set = vi.fn();
+  render(
+    <SealControls
+      field={{ ...field, rule: "literal:EXACT HEADING" }}
+      options={defaultRuleOptions}
+      set={set}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("Seal ink"), {
+    target: { value: "purple" },
+  });
+  expect(set).toHaveBeenCalledWith({
+    seal_text: "EXACT HEADING",
+    seal_text_mode: "static",
+    seal_color: "purple",
+  });
+});

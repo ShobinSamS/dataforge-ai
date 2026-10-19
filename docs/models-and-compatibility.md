@@ -27,7 +27,8 @@ Faker names are invented samples, but may coincide with real names. Addresses
 use a deliberately fictional locality, emails use example.invalid, identifiers
 have configurable random formats without an automatic prefix, and phone values use
 the reserved 202-555-01xx fictional range. Signatures combine synthetic letters and
-optional flourishes; configurable seals use sample text by default. Provenance remains
+optional flourishes; configurable seals use varied fictional wording by default,
+with explicit static and custom formats available. Provenance remains
 in metadata. No credential validity is implied.
 
 Model/service admission plan: inspect available RAM, acquire the single resource

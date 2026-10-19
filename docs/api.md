@@ -59,7 +59,9 @@ Example job:
 
 Supported field types: text, name, address, date, email, phone, identifier,
 signature, seal, qr, barcode, portrait. Portrait is appended to preserve existing
-class IDs. Repeated semantic types share values on a page.
+class IDs. Repeated semantic text types share values on a page; seal wording
+uses its own sample/region seed. Seal content modes and the transparent preview
+endpoint are documented in the [seal catalog](seals.md).
 `rule="literal:Your fictional text"` overrides generated text; empty uses Faker
 or the fictional generator. Natural-language rules are compiled to bounded plans
 by shorthand recognition or local Qwen. Unknown draft rules may be saved, but
