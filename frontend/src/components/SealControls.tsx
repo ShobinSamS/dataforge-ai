@@ -85,6 +85,10 @@ export default function SealControls({
             "form",
             "dated",
             "text",
+            "attestation",
+            "corporate",
+            "form_block",
+            "nameplate",
           ].map((v) => (
             <option key={v} value={v}>
               {v.replaceAll("_", " ")}
@@ -124,11 +128,17 @@ export default function SealControls({
             })
           }
         >
-          {["random", "solid", "double", "dotted", "dashed", "serrated"].map(
-            (v) => (
-              <option key={v}>{v}</option>
-            ),
-          )}
+          {[
+            "random",
+            "solid",
+            "double",
+            "dotted",
+            "dashed",
+            "serrated",
+            "rosettes",
+          ].map((v) => (
+            <option key={v}>{v}</option>
+          ))}
         </select>
       </label>
       <label>
@@ -148,6 +158,100 @@ export default function SealControls({
           )}
         </select>
       </label>
+      {options.seal_style === "corporate" && (
+        <>
+          <label>
+            Inner top arc
+            <input
+              maxLength={160}
+              value={options.seal_inner_top_text || ""}
+              onChange={(e) => change({ seal_inner_top_text: e.target.value })}
+            />
+          </label>
+          <label>
+            Inner bottom arc
+            <input
+              maxLength={160}
+              value={options.seal_inner_bottom_text || ""}
+              onChange={(e) =>
+                change({ seal_inner_bottom_text: e.target.value })
+              }
+            />
+          </label>
+          <label>
+            Center motif
+            <select
+              value={options.seal_center_motif || "none"}
+              onChange={(e) =>
+                change({
+                  seal_center_motif: e.target
+                    .value as RuleOptions["seal_center_motif"],
+                })
+              }
+            >
+              {["none", "shield", "rosette", "rays"].map((v) => (
+                <option key={v}>{v}</option>
+              ))}
+            </select>
+          </label>
+          <p className="field-hint">
+            Inner arcs support the same placeholders in Random and Custom modes.
+            Static uses the exact wording. Motifs are generated geometric
+            designs.
+          </p>
+        </>
+      )}
+      {["attestation", "form_block"].includes(options.seal_style || "") && (
+        <>
+          <p className="field-hint">
+            Put each form row in the body as Label: value. Leave the value empty
+            for a blank dotted line. A REG NO: row appears beneath the heading.
+            Bottom text can also be a field.
+          </p>
+          <label>
+            Field value writing
+            <select
+              value={options.seal_field_writing || "printed"}
+              onChange={(e) =>
+                change({
+                  seal_field_writing: e.target.value as "printed" | "cursive",
+                })
+              }
+            >
+              <option value="printed">Printed</option>
+              <option value="cursive">English cursive</option>
+            </select>
+          </label>
+        </>
+      )}
+      {options.seal_style === "attestation" && (
+        <>
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={options.seal_embedded_signature || false}
+              onChange={(e) =>
+                change({ seal_embedded_signature: e.target.checked })
+              }
+            />
+            Add a generated signature inside the stamp
+          </label>
+          {options.seal_embedded_signature && (
+            <label>
+              Signing name (blank generates a name)
+              <input
+                maxLength={100}
+                value={options.seal_signer_name || ""}
+                onChange={(e) => change({ seal_signer_name: e.target.value })}
+              />
+            </label>
+          )}
+          <p className="field-hint">
+            The stamp and embedded signature share one seal mask. Use separate
+            regions when you need separate seal and signature labels.
+          </p>
+        </>
+      )}
       {mode === "static" && (
         <>
           <label>

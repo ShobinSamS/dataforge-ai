@@ -51,9 +51,9 @@ words within a seal; Static mode controls repetition across dataset samples.
 ## Design choices
 
 Shapes: ring, round, double ring, oval, badge, square, rectangle, professional,
-form, dated, and unframed text. Random shape selection respects the selected
+form, dated, unframed text, attestation, corporate, form block and nameplate. Random shape selection respects the selected
 region's aspect ratio. Borders include solid, double, dotted, dashed and toothed
-(serrated) patterns. Ornaments include stars, diamonds, rosettes and monograms.
+(serrated) patterns, plus small circular rosettes. Ornaments include stars, diamonds, rosettes and monograms.
 Ink may be red, blue, green, purple, black, brown or a mix, with seeded opacity,
 weight and worn contact. Designs are rendered on transparent layers; no white
 paper rectangle is pasted over the template. Full-region cleanup still removes
@@ -87,8 +87,9 @@ scope; complex script shaping around arcs is not implemented.
 | seal7.jpg | Toothed/dotted/dashed rings, center text and year/location placement |
 | seal8.jpg | Paired corporate arcs, generic center motifs, double rectangular frames and form lines |
 
-These are layout references. Generated entities and ornaments are fictional;
-the code does not trace supplied government emblems, signatures or named seals.
+These are layout references. Default generated entities and ornaments are
+fictional; the comparison cases below use the supplied English wording. The
+code does not trace supplied emblems or signature pixels.
 
 Run `python -m scripts.preview_seals` from the repository root for a catalogue
 under `artifacts/seal-variations/`, including individual transparent PNGs and
@@ -98,3 +99,48 @@ ornament, colors and content mode in each seal annotation (`engine: seal-v2`).
 `POST /api/seals/preview` accepts `options` (RuleOptions), `seed`, `region_id`,
 `width`, `height` and an optional explicit `literal`. It returns a transparent
 PNG data URL and metadata without creating or changing a template or dataset.
+
+## Seal6 and seal8 reference layouts
+
+The supplied wording appears in eight generated comparison cases in
+`tests/fixtures/seal-reference-cases.json`. Run
+`python -m scripts.preview_seal_references` for the gallery, individual
+transparent PNGs and full metadata under `artifacts/seal-reference-cases/`.
+The original files are not copied into the repository. Golden mask comparisons
+and separate checks cover readable text boxes, seeded output, inner arcs, field
+values, embedded signature metadata and compositing without a paper rectangle.
+Only deliberately reviewed changes should use `--update-baseline`.
+Pixel matching requires the recorded font fingerprint; machines with different
+installed fonts still run wording, bounds and transparency checks without
+claiming an identical raster. No font files are bundled or downloaded.
+
+In **Rendering style and cleanup → Seal shape**:
+
+| Layout | Use and configuration |
+| --- | --- |
+| `attestation` | Large heading, bold name row, multiline body and date/reference fields. Enable **Add a generated signature inside the stamp** for a name-based mark in its own row. |
+| `corporate` | Paired outer arcs, optional inner top/bottom arcs and central text. Add a geometric shield, rosette or rays motif and a rosette border. |
+| `form_block` | Company heading, a centered `REG NO:` row, left-aligned fields, an optional status such as `GRANTED`, and a footer. |
+| `nameplate` | Compact company heading and registration text within a single or double frame. |
+
+Use `Label: value` in the body (or bottom row) of attestation/form-block layouts.
+`TO:` creates a labeled blank dotted line; `Dated: 18-07-2014` adds a value.
+**Field value writing → English cursive** changes values while retaining printed
+labels. In Custom mode, `Dated: {date}` and `C.No.: {reference}` vary per sample.
+Inner arcs also support the existing placeholders in Random/Custom mode;
+Static preserves their literal wording. Intentional repeated source words such
+as `COMPANY NAME`/`COMPANY ADDRESS NAME` require **Allow repeated words**.
+
+New `rule_options` fields are `seal_inner_top_text`, `seal_inner_bottom_text`,
+`seal_center_motif` (`none`, `shield`, `rosette`, `rays`), `seal_field_writing`
+(`printed`, `cursive`), `seal_embedded_signature` and `seal_signer_name` (blank
+generates a name). Signature ink gets the whole stamp's opacity once. Fields
+record labels, values, font choices and local bounding boxes; the optional
+signature records its generated lettering and local box. The composite has
+one seal annotation/mask; use separate regions for separate object labels.
+
+The trading-circle comparison is an English layout adaptation. Arabic arc
+shaping and the supplied emblem/mascot artwork are not replicated. The shield
+and ray motifs and optional signature are generated geometry. Seal6's printed
+wording is used as provided, with newly generated handwriting and date/reference
+values for comparison; default datasets still use random entities and wording.

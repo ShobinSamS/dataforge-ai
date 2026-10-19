@@ -122,3 +122,54 @@ it("preserves a literal heading when editing other seal settings", () => {
     seal_color: "purple",
   });
 });
+
+it("offers reference layouts, inner arcs and handwritten attestation fields", () => {
+  const set = vi.fn();
+  const view = render(
+    <SealControls
+      field={field}
+      options={{ ...defaultRuleOptions, seal_style: "corporate" }}
+      set={set}
+    />,
+  );
+  const shape = screen.getByLabelText("Seal shape") as HTMLSelectElement;
+  for (const value of ["attestation", "corporate", "form_block", "nameplate"]) {
+    expect(
+      Array.from(shape.options).some((option) => option.value === value),
+    ).toBe(true);
+  }
+  fireEvent.change(screen.getByLabelText("Inner top arc"), {
+    target: { value: "INCORPORATED {year}" },
+  });
+  expect(set).toHaveBeenLastCalledWith({
+    seal_inner_top_text: "INCORPORATED {year}",
+  });
+  fireEvent.change(screen.getByLabelText("Center motif"), {
+    target: { value: "shield" },
+  });
+  expect(set).toHaveBeenLastCalledWith({ seal_center_motif: "shield" });
+  view.rerender(
+    <SealControls
+      field={field}
+      options={{
+        ...defaultRuleOptions,
+        seal_style: "attestation",
+        seal_embedded_signature: true,
+      }}
+      set={set}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("Field value writing"), {
+    target: { value: "cursive" },
+  });
+  expect(set).toHaveBeenLastCalledWith({ seal_field_writing: "cursive" });
+  fireEvent.change(
+    screen.getByLabelText("Signing name (blank generates a name)"),
+    { target: { value: "Mira Dev" } },
+  );
+  expect(set).toHaveBeenLastCalledWith({ seal_signer_name: "Mira Dev" });
+  fireEvent.click(
+    screen.getByLabelText("Add a generated signature inside the stamp"),
+  );
+  expect(set).toHaveBeenLastCalledWith({ seal_embedded_signature: false });
+});

@@ -283,13 +283,19 @@ than one is installed, uses the dataset seed, and includes undecorated samples.
 Existing fields that explicitly saved the old name/flourish style keep that selection;
 choose Mixed to obtain all families. Signature annotation text records the actual
 visible letters rather than always storing the full generated name. Seals support
-11 shapes, six ink families, top/body/bottom text, configurable borders and ink wear.
+15 shapes, six ink families, top/body/bottom text, configurable borders and ink wear.
 Seal wording defaults to **Random per sample**. Choose **Static** for a fixed
 heading and multiline body, or **Custom** for generated placeholders. Enable
 **Allow repeated words** only when matching arc text or repeated phrases are
 intentional. Use **Preview seal variation** to inspect both the pixels and the
 actual generated wording. See the [seal format catalog](docs/seals.md) for examples.
 Original seals are removed first using the selected full-region cleanup.
+For the supplied attestation and corporate references, choose **attestation**,
+**corporate**, **form block**, or **nameplate** in **Seal shape**. Form rows use
+`Label: value`; an empty value leaves a blank dotted line. Attestation can include
+a generated signature and cursive field values. Corporate supports inner arcs
+and center motifs. See the [reference layout catalog](docs/seals.md#seal6-and-seal8-reference-layouts)
+for the comparison gallery command and configuration examples.
 For both signatures and seals, **Ink opacity → Random per sample** is enabled
 by default (45–100%). Change the minimum/maximum sliders for a different range,
 or select **Fixed opacity** to keep all impressions at a chosen strength.

@@ -55,7 +55,7 @@ class RuleOptions(Contract):
     ink_opacity: float = Field(default=1,ge=.05,le=1,allow_inf_nan=False)
     ink_opacity_min: float = Field(default=.45,ge=.05,le=1,allow_inf_nan=False)
     ink_opacity_max: float = Field(default=1,ge=.05,le=1,allow_inf_nan=False)
-    seal_style: Literal["random","ring","round","double_ring","oval","badge","square","rectangle","professional","form","dated","text"] = "random"
+    seal_style: Literal["random","ring","round","double_ring","oval","badge","square","rectangle","professional","form","dated","text","attestation","corporate","form_block","nameplate"] = "random"
     seal_color: Literal["random","red","blue","green","purple","black","brown","mixed"] = "random"
     seal_text_mode: Literal["random","static","custom"] = "random"
     seal_allow_repeated_words: bool = False
@@ -65,11 +65,23 @@ class RuleOptions(Contract):
     seal_top_format: str = Field(default="{organization}",max_length=200)
     seal_bottom_format: str = Field(default="{city} · {state}",max_length=200)
     seal_body_format: str = Field(default="{department}\n{name}\nREF {reference}",max_length=480)
-    seal_border: Literal["random","solid","double","dotted","dashed","serrated"] = "random"
+    seal_border: Literal["random","solid","double","dotted","dashed","serrated","rosettes"] = "random"
     seal_symbol: Literal["random","none","star","diamond","rosette","monogram"] = "random"
     seal_wear: float = Field(default=.08,ge=0,le=.45)
+    seal_inner_top_text: str = Field(default="",max_length=160)
+    seal_inner_bottom_text: str = Field(default="",max_length=160)
+    seal_center_motif: Literal["none","shield","rosette","rays"] = "none"
+    seal_field_writing: Literal["printed","cursive"] = "printed"
+    seal_embedded_signature: bool = False
+    seal_signer_name: str = Field(default="",max_length=100)
 
-    @field_validator("seal_top_format","seal_bottom_format","seal_body_format")
+    @field_validator("seal_signer_name")
+    @classmethod
+    def valid_seal_signer(cls,value):
+        if value.strip() and not any(c.isalpha() for c in value):raise ValueError("Signing name needs at least one letter")
+        return value
+
+    @field_validator("seal_top_format","seal_bottom_format","seal_body_format","seal_inner_top_text","seal_inner_bottom_text")
     @classmethod
     def valid_seal_format(cls,value):return validate_seal_format(value)
 
@@ -92,7 +104,7 @@ class RuleOptions(Contract):
         if self.ink_opacity_min>self.ink_opacity_max:
             raise ValueError("Minimum ink opacity must not exceed maximum ink opacity")
         if self.seal_text_mode=="static" and not self.seal_allow_repeated_words:
-            duplicates=duplicate_words([self.seal_text,self.seal_subtext,self.seal_bottom_text])
+            duplicates=duplicate_words([self.seal_text,self.seal_subtext,self.seal_bottom_text,self.seal_inner_top_text,self.seal_inner_bottom_text])
             if duplicates:raise ValueError("Repeated seal words: "+", ".join(duplicates)+". Enable repeated words if intentional.")
         if self.date_start>self.date_end or self.date_start.year<1900 or self.date_end.year>2100:
             raise ValueError("Date range must be ordered and within 1900–2100")

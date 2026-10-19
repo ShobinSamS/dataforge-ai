@@ -87,7 +87,11 @@ export interface RuleOptions {
     | "professional"
     | "form"
     | "dated"
-    | "text";
+    | "text"
+    | "attestation"
+    | "corporate"
+    | "form_block"
+    | "nameplate";
   seal_color?:
     | "random"
     | "red"
@@ -104,11 +108,23 @@ export interface RuleOptions {
   seal_body_format?: string;
   seal_bottom_text?: string;
   seal_border?:
-    "random" | "solid" | "double" | "dotted" | "dashed" | "serrated";
+    | "random"
+    | "solid"
+    | "double"
+    | "dotted"
+    | "dashed"
+    | "serrated"
+    | "rosettes";
   seal_symbol?: "random" | "none" | "star" | "diamond" | "rosette" | "monogram";
   seal_text?: string;
   seal_subtext?: string;
   seal_wear?: number;
+  seal_inner_top_text?: string;
+  seal_inner_bottom_text?: string;
+  seal_center_motif?: "none" | "shield" | "rosette" | "rays";
+  seal_field_writing?: "printed" | "cursive";
+  seal_embedded_signature?: boolean;
+  seal_signer_name?: string;
 }
 export interface Region {
   id: string;
