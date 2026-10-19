@@ -1,7 +1,8 @@
 # Signature variation: reference analysis and implementation
 
 The supplied sheets are style references, not training data or outlines to trace.
-The renderer composes fictional names and abbreviated letters. Observations below
+Dataset generation composes random names and abbreviated letters. The sign7 test
+gallery uses the names printed in the supplied sheet for direct comparison. Observations below
 describe the visible sheets; they do not identify writers or infer personality.
 
 ## What differs in the seven references
@@ -45,7 +46,11 @@ Ten English pen-path families supplement the previous thirteen forms:
 gestural abbreviation, stacked words, initials/letter bridge, terminal loop,
 crossed initials, minimal lettering, initial/surname, split letter clusters,
 enclosing returns and interwoven capitals. The latter two adapt sign7's broad
-rounded loops, overlapping capital bowls and dense small letter bodies. Returns
+rounded loops, overlapping capital bowls and dense small letter bodies. The
+looped families now have dedicated rounded capital allographs for A, I, J, M,
+N, P, Q, R, T and W. Interwoven capitals use their own letter bowls instead of
+adding a circular frame around every capital. Enclosing returns focus on the
+entry capital so the remaining name can extend beyond it. Returns
 are attached to lettering and sampled as rounded paths rather than polygonal
 frames. Mixed includes all 23 forms.
 The alphabet is authored locally with separate pen movements, alternate capital
@@ -95,10 +100,14 @@ the selected style before generating a dataset.
 ## sign7 regression cases
 
 `tests/fixtures/sign7-cases.json` maps all 15 reference positions (five rows,
-three columns) to observed composition features, a selected style, a fictional
+three columns) to observed composition features, a selected style, the supplied
 name and a reproducible seed. It covers enclosing loops, overlapping capital
 bowls, initial/letter bridges, crossed initials, compact surnames and abbreviated
-forms. These are style adaptations, not exact replicas of the named examples.
+forms. The gallery labels both the reference name and actual drawn letters, so
+abbreviation is visible. Enclosed and interwoven styles keep the complete input
+name, including single-word names; other styles retain their intentional short
+forms. These are generated style adaptations, not exact replicas of the reference.
+The named test cases do not replace the dataset's random name generator.
 
 Run `python -m scripts.preview_signature_reference` for the 15-case gallery,
 individual transparent PNGs, intended letter metadata and a signature/seal

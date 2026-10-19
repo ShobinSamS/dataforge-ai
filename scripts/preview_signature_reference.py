@@ -1,4 +1,4 @@
-"""Render the sign7 style test matrix using fictional names, plus ink opacity examples.
+"""Render the sign7 style test matrix using the supplied names, plus ink opacity examples.
 
 Run: python -m scripts.preview_signature_reference
 The user reference is not copied or traced. Cell IDs refer to its 5 x 3 layout.
@@ -13,6 +13,7 @@ from PIL import Image, ImageDraw
 from backend.app.schemas import RuleOptions
 from backend.app.signatures import render_signature
 from backend.app.seals import plan_seal_content, render_seal
+from backend.app.fonts import load_font
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = ROOT / "tests/fixtures/sign7-cases.json"
@@ -25,7 +26,7 @@ def main():
     out = ROOT / "artifacts/sign7-regression"
     out.mkdir(parents=True, exist_ok=True)
     cases = json.loads(CASES.read_text(encoding="utf-8"))
-    gallery = Image.new("RGB", (1440, 1100), "#eaf0f4")
+    gallery = Image.new("RGB", (1440, 1250), "#eaf0f4")
     draw = ImageDraw.Draw(gallery)
     reports = []
     baseline = Image.new("L", (660, 375))
@@ -37,12 +38,12 @@ def main():
         baseline.paste(thumbnail, (index % 3 * 220, index // 3 * 75))
         layer.save(out / f'{case["cell"]}.png')
         x = index % 3 * 480 + 10
-        y = index // 3 * 220 + 8
-        draw.rounded_rectangle((x, y, x + 460, y + 204), radius=8, fill="white")
+        y = index // 3 * 250 + 8
+        draw.rounded_rectangle((x, y, x + 460, y + 234), radius=8, fill="white")
         gallery.paste(layer, (x + 10, y), layer)
-        draw.text((x + 12, y + 155), f'{case["cell"]} / {case["style"]} / {info["text"]}', fill="#334155")
-        # These descriptions describe a composition, not a copied person's signature.
-        draw.text((x + 12, y + 179), case["feature"], fill="#64748b")
+        draw.text((x + 12, y + 155), f'{case["cell"]}  {case["name"]}', font=load_font(17,"arial"), fill="#172335")
+        draw.text((x + 12, y + 181), f'{case["style"]} / drawn: {info["text"]}', font=load_font(13,"arial"), fill="#334155")
+        draw.text((x + 12, y + 207), case["feature"], font=load_font(12,"arial"), fill="#64748b")
         reports.append({**case, "metadata": info})
     gallery.save(out / "reference-cases.png")
     (out / "reference-cases.json").write_text(json.dumps(reports, indent=2), encoding="utf-8")

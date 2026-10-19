@@ -87,6 +87,25 @@ LOWER_ALTERNATES={
  "e":[[(0,.9),(.6,.68),(.45,.48),(.15,.55),(.1,.9),(.35,1),(.9,.8)]],
 }
 
+# Rounded entry/return allographs for looped signing, with the loop belonging
+# to the capital's pen movement. These are reusable letters, not named traces.
+LOOPED_CAPITALS={
+ "A":[[(-.15,.8),(.15,.25),(.7,-.08),(1,.04),(.78,.4),(.15,.62),(-.35,.48),(-.38,.18),(.1,-.02),(.65,.02),(.5,.65),(.4,1.05)],
+      [(-.05,.72),(.55,.6),(1.15,.45)]],
+ "I":[[(-.55,.68),(-.6,.3),(-.1,-.06),(.65,-.12),(.9,.05),(.65,.3),(.05,.65),(-.1,1),(.55,.88)]],
+ "J":[[(-.4,.45),(-.35,.08),(.25,-.1),(.95,-.02),(.65,.35),(.38,.9),(-.1,1.25),(-.3,1.08),(.1,.8)]],
+ "M":[[(.1,.85),(.3,.05),(-.05,-.1),(-.4,.1),(-.45,.55),(-.1,.8),(.1,.85),
+       (.7,.15),(.95,-.06),(1.2,.1),(1.18,.5),(.9,.83),(.5,.85),(.7,.15),(.9,0),(.8,1),(1.3,.85)]],
+ "N":[[(-.25,.8),(-.35,.18),(.02,-.06),(.28,.05),(.02,.95),(.48,.28),(.9,.02),(1.12,.16),(.78,.9),(1.15,.8)]],
+ "P":[[(.05,1),(.22,.18),(.65,-.05),(1,.05),(1.08,.32),(.7,.62),(.08,.6),(-.25,.4),(-.18,.1),(.4,-.04)]],
+ "Q":[[(.7,.04),(.15,-.05),(-.28,.25),(-.2,.75),(.18,.95),(.78,.66),(1,.2),(.7,.04),(.2,.65),(-.15,1.15),(1.1,.88)]],
+ "R":[[(0,1),(.2,.2),(.6,-.05),(1,.05),(1.05,.3),(.7,.58),(.08,.55),(-.2,.35),(-.1,.08),(.4,-.04)],
+      [(.4,.55),(.65,.85),(1.15,1)]],
+ "T":[[(-.5,.48),(-.55,.12),(.02,-.08),(.85,-.12),(1.1,.02),(.9,.2),(.15,.45)],
+      [(.78,.05),(.4,.65),(.35,1.05),(.8,.9)]],
+ "W":[[(-.2,.15),(-.35,.78),(-.12,1),(.25,.45),(.35,.02),(.48,.15),(.3,.85),(.55,1),(.95,.4),(1.15,.05)]],
+}
+
 
 def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
     """Return transparent layer plus morphology metadata, using only local paths."""
@@ -137,6 +156,7 @@ def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
         key=char.upper() if is_cap else char.lower()
         forms=UPPER if is_cap else LOWER
         paths=(ALTERNATES if is_cap else LOWER_ALTERNATES).get(key,forms[key]) if alternate else forms[key]
+        if ornamental and is_cap:paths=LOOPED_CAPITALS.get(key,paths)
         sy=cap*rng.uniform(.85,1.15) if is_cap else cap*body*rng.uniform(.85,1.15)
         sx=sy*(rng.uniform(1.15,1.6) if is_cap and ornamental else rng.uniform(.8,1.25) if is_cap else compression)
         baseline=355+line*145+rng.uniform(-3,3)
@@ -170,23 +190,16 @@ def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
         if ornament=="enclosing_return":
             # Sample a broad rounded return rather than connecting a few
             # corner points (which makes a triangular frame at small sizes).
-            cx=(left+right)/2;cy=(top+bottom)/2-cap*.12
-            rx=span*rng.uniform(.66,.8);ry=max(cap*.65,(bottom-top)*.65)
+            x0,y0,x1,y1=capital_boxes[0]
+            cx=(x0+x1)/2;cy=(y0+y1)/2-cap*.05
+            rx=max(cap*.85,(x1-x0)*rng.uniform(.7,.9));ry=max(cap*.6,(y1-y0)*.65)
             loop=[(cx+rx*cos(.65+i*2*pi/24),cy+ry*sin(.65+i*2*pi/24)) for i in range(25)]
             pen([start,((start[0]+loop[0][0])/2,start[1]+cap*.12),loop[0]])
             pen(loop)
             pen([loop[-1],(left+span*.35,bottom+cap*.2),(right+span*.16,bottom-cap*.2)])
         elif ornament=="interwoven_capitals":
-            # Distinct, overlapping bowls grow from each authored capital,
-            # rather than disconnected decorative scribbles over a typed name.
-            for (_,exit),bounds in zip(first_ends[:2],capital_boxes[:2]):
-                x0,y0,x1,y1=bounds;cx=(x0+x1)/2;cy=(y0+y1)/2
-                rx=max(cap*.45,(x1-x0)*.58);ry=max(cap*.55,(y1-y0)*.6)
-                # Start at the capital's terminal height and loop back through
-                # it. The bowls overlap because the capital advances overlap.
-                loop=[(cx+rx*cos(.7+i*2*pi/24),cy+ry*sin(.7+i*2*pi/24)) for i in range(25)]
-                pen([exit,((exit[0]+loop[0][0])/2,exit[1]+cap*.1),loop[0]])
-                pen(loop)
+            # Capitals already contain their own bowls. Adding another oval
+            # to each would turn the letters into repeated circular frames.
             pen([start,(right+span*.12,bottom+cap*.06),(left-span*.12,bottom+cap*.22)])
         elif ornament=="crossbar":
             pen([start,(right+75,top+40),(left-60,bottom-20),end])
@@ -211,5 +224,6 @@ def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
         "capital_scale":round(cap,3),"body_ratio":round(body,3),"compression":round(compression,3),
         "slant":round(slant,3),"baseline_rise":round(angle,3),"overlap":round(overlap,3),
         "allograph_variant":alternate,"corner_style":"angular" if angular else "rounded",
+        "capital_form":"looped" if ornamental else "standard",
         "terminal":ornament,"pen_lifts":lift_count+line,"stroke_count":len(strokes),
         "has_flourish":ornament!="none","has_wave":family=="initial_bridge","lettering_only":ornament=="none"}

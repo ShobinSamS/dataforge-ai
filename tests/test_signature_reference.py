@@ -1,6 +1,6 @@
 """Reviewed raster regression cases for the user's sign7 composition sheet.
 
-The fixture contains only generated fictional signatures, never reference crops.
+The fixture contains generated signatures with the supplied names, never reference crops.
 Font selection is explicit: pen-path cases must work without system script fonts.
 """
 import json
@@ -48,3 +48,22 @@ def test_reference_compositions_retain_reviewed_geometry_and_connected_ink(case)
 def test_reference_matrix_covers_all_fifteen_compositions():
     assert {case["cell"] for case in CASES} == {f"r{r}c{c}" for r in range(1, 6) for c in range(1, 4)}
     assert len({(c["style"], c["name"], c["seed"]) for c in CASES}) == 15
+    assert [case["name"] for case in CASES] == [
+        "Abdul Qadeer", "Talha Ali", "Nazim", "Wali Rehman", "Mussawwir",
+        "Rehmat", "Amir ul Islam", "Imran Abid", "Jamil Awan", "Jamshaid Anwar",
+        "Parvez Aarfin", "Zakir Khan", "Noor Zaman", "Frishta", "M Iqbal",
+    ]
+
+
+@pytest.mark.parametrize("family", ["enclosed", "interwoven", "surname"])
+def test_single_word_signatures_do_not_duplicate_or_invent_initials(family):
+    options = RuleOptions(signature_style=family)
+    for name in ("Nazim", "Mussawwir", "Rehmat", "Frishta"):
+        _, _, info = render_signature((440, 150), name, random.Random(42), options)
+        assert info["text"] == name
+
+
+@pytest.mark.parametrize("family", ["enclosed", "interwoven"])
+def test_looped_name_styles_keep_all_input_words(family):
+    _, _, info = render_signature((440, 150), "Amir ul Islam", random.Random(42), RuleOptions(signature_style=family))
+    assert info["text"] == "Amir ul Islam"
