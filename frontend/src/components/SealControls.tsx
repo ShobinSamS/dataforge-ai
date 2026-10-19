@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { post } from "../api";
 import type { Region, RuleOptions } from "../types";
+import InkOpacityControls from "./InkOpacityControls";
 
 export default function SealControls({
   field,
@@ -249,6 +250,7 @@ export default function SealControls({
           onChange={(e) => change({ seal_wear: Number(e.target.value) })}
         />
       </label>
+      <InkOpacityControls options={options} set={change} />
       <button
         type="button"
         className="btn small"

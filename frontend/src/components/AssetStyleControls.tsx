@@ -1,5 +1,6 @@
 import type { Region, RuleOptions } from "../types";
 import SealControls from "./SealControls";
+import InkOpacityControls from "./InkOpacityControls";
 
 export default function AssetStyleControls({
   field,
@@ -12,7 +13,13 @@ export default function AssetStyleControls({
 }) {
   const set = (patch: Partial<RuleOptions>) =>
     onChange({
-      rule_options: { ...options, ...patch },
+      rule_options: {
+        ...options,
+        ...(field.kind === "signature" && field.rule?.startsWith("literal:")
+          ? { literal_text: field.rule.slice(8) }
+          : {}),
+        ...patch,
+      },
       confirmed: false,
       rule: "",
       rule_resolved_hash: "",
@@ -96,6 +103,12 @@ export default function AssetStyleControls({
               }
             >
               <option value="mixed">Mixed signature styles per sample</option>
+              <option value="enclosed">
+                Pen strokes · broad enclosing return
+              </option>
+              <option value="interwoven">
+                Pen strokes · overlapping capitals and compact letters
+              </option>
               <option value="gestural">
                 Pen strokes · abbreviated fast signing
               </option>
@@ -154,6 +167,7 @@ export default function AssetStyleControls({
             adding independent scribbles. A literal rule supplies fictional
             signing text; the selected style may abbreviate it.
           </p>
+          <InkOpacityControls options={options} set={set} />
         </>
       )}
       {field.kind === "seal" && (

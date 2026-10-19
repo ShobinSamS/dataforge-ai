@@ -62,6 +62,15 @@ signature, seal, qr, barcode, portrait. Portrait is appended to preserve existin
 class IDs. Repeated semantic text types share values on a page; seal wording
 uses its own sample/region seed. Seal content modes and the transparent preview
 endpoint are documented in the [seal catalog](seals.md).
+Signature and seal `rule_options` accept `ink_opacity_mode` (`random`, default;
+or `fixed`), `ink_opacity` (default 1), `ink_opacity_min` (default 0.45) and
+`ink_opacity_max` (default 1). Values must be finite, between 0.05 and 1, with
+minimum ≤ maximum. Opacity is seeded independently and recorded in annotations;
+binary masks retain every nonzero ink pixel. Other field types ignore these
+options. `GET /api/signatures/previews` and `/api/signatures/preview` accept the
+same four query parameters; returned preview URLs retain them. The PNG endpoint
+reports the chosen strength in `X-Ink-Opacity`. Seal preview accepts them under
+`options`. Neither preview creates a dataset.
 `rule="literal:Your fictional text"` overrides generated text; empty uses Faker
 or the fictional generator. Natural-language rules are compiled to bounded plans
 by shorthand recognition or local Qwen. Unknown draft rules may be saved, but

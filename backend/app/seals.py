@@ -86,9 +86,10 @@ def render_seal(size,content,rng,style):
     if border=='random':border=rng.choice(('solid','double','dotted','dashed','serrated'))
     if shape=='badge' and style.seal_border=='random':border='serrated'
     color=rng.choice(list(PALETTE)) if style.seal_color in {'random','mixed'} else style.seal_color
-    opacity=rng.randint(190,240);ink=(*PALETTE[color],opacity)
+    rng.randint(190,240)  # Retain the established layout/color RNG sequence.
+    ink=(*PALETTE[color],255)
     other=rng.choice([key for key in PALETTE if key!=color]) if style.seal_color=='mixed' else color
-    text_ink=(*PALETTE[other],opacity)
+    text_ink=(*PALETTE[other],255)
     bold=style.font_weight=='bold' or (style.font_weight=='auto' and rng.random()<.65)
     face=resolve_font_weight(style.font_id,'bold' if bold else 'normal')
     stroke=max(scale,round(min(W,H)*rng.uniform(.007,.014)))
@@ -217,7 +218,9 @@ def render_seal(size,content,rng,style):
         pixels[:,:,3]=(pixels[:,:,3].astype(float)*noise.uniform(.72,1,(H,1))).astype(np.uint8)
         layer=Image.fromarray(pixels)
     if scale>1:layer=layer.resize(size,Image.Resampling.LANCZOS)
-    mask=layer.getchannel('A').point(lambda p:255 if p else 0)
     info={'shape':shape,'border':border,'symbol':symbol,'ink':color,'text_ink':other,'content_mode':content.get('mode','static'),
           'top':content['top'],'bottom':content['bottom'],'lines':lines,'text':"\n".join(s for s in [content['top'],*lines,content['bottom']] if s),'engine':'seal-v2'}
+    from .ink import apply_ink_opacity
+    layer,mask,opacity_info=apply_ink_opacity(layer,rng,style,"seal")
+    info.update(opacity_info)
     return layer,mask,info

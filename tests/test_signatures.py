@@ -137,7 +137,7 @@ def test_live_previews_validate_inputs_and_create_no_dataset(tmp_path):
 
 @pytest.mark.parametrize("family",["minimal","tall_initial","name"])
 def test_random_pen_weight_is_seeded_thicker_and_keeps_lettering(family):
-    options=RuleOptions(signature_style=family,text_color="#173574")
+    options=RuleOptions(signature_style=family,text_color="#173574",ink_opacity_mode="fixed",ink_opacity=1)
     # Compare with the unweighted rendering using exactly the same RNG state.
     seen=set()
     for seed in range(20):

@@ -24,7 +24,11 @@ it("explains fixed saved styles and previews the batch override without changing
         kind: "signature",
         replace: true,
         label: "Signer",
-        rule_options: { signature_style: "flourish" },
+        rule_options: {
+          signature_style: "flourish",
+          ink_opacity_mode: "fixed",
+          ink_opacity: 0.3,
+        },
       },
     ],
   } as Template;
@@ -50,7 +54,9 @@ it("explains fixed saved styles and previews the batch override without changing
   await waitFor(() =>
     expect(screen.getByAltText("Fictional gestural signature 1")).toBeTruthy(),
   );
-  expect(api).toHaveBeenCalledWith("/signatures/previews?style=mixed&seed=42");
+  expect(api).toHaveBeenCalledWith(
+    "/signatures/previews?style=mixed&seed=42&ink_opacity_mode=fixed&ink_opacity=0.3&ink_opacity_min=0.45&ink_opacity_max=1",
+  );
   fireEvent.change(screen.getByLabelText("Signature variety for this batch"), {
     target: { value: "template" },
   });

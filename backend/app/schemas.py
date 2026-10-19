@@ -27,7 +27,7 @@ class FieldType(StrEnum):
 
 
 CLASS_NAMES = [v.value for v in FieldType]
-SignatureStyle = Literal["mixed","name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish","tall_initial","compact","angular","looped","sweeping","gestural","stacked","initial_bridge","terminal_loop","crossed","minimal","surname","split"]
+SignatureStyle = Literal["mixed","name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish","tall_initial","compact","angular","looped","sweeping","gestural","stacked","initial_bridge","terminal_loop","crossed","minimal","surname","split","enclosed","interwoven"]
 
 
 class RuleOptions(Contract):
@@ -51,6 +51,10 @@ class RuleOptions(Contract):
     writing_style: Literal["printed","cursive"] = "printed"
     code_background: Literal["transparent","white"] = "transparent"
     signature_style: SignatureStyle = "mixed"
+    ink_opacity_mode: Literal["random","fixed"] = "random"
+    ink_opacity: float = Field(default=1,ge=.05,le=1,allow_inf_nan=False)
+    ink_opacity_min: float = Field(default=.45,ge=.05,le=1,allow_inf_nan=False)
+    ink_opacity_max: float = Field(default=1,ge=.05,le=1,allow_inf_nan=False)
     seal_style: Literal["random","ring","round","double_ring","oval","badge","square","rectangle","professional","form","dated","text"] = "random"
     seal_color: Literal["random","red","blue","green","purple","black","brown","mixed"] = "random"
     seal_text_mode: Literal["random","static","custom"] = "random"
@@ -85,6 +89,8 @@ class RuleOptions(Contract):
 
     @model_validator(mode="after")
     def valid_dates(self):
+        if self.ink_opacity_min>self.ink_opacity_max:
+            raise ValueError("Minimum ink opacity must not exceed maximum ink opacity")
         if self.seal_text_mode=="static" and not self.seal_allow_repeated_words:
             duplicates=duplicate_words([self.seal_text,self.seal_subtext,self.seal_bottom_text])
             if duplicates:raise ValueError("Repeated seal words: "+", ".join(duplicates)+". Enable repeated words if intentional.")

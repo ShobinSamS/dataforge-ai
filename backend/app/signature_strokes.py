@@ -5,8 +5,9 @@ paths allow letter-form, joining and layout changes independently of font files.
 This is a geometric renderer, not a trained or Sigma–Lognormal handwriting model.
 """
 from PIL import Image, ImageDraw
+from math import cos, sin, pi
 
-PEN_STYLES=("gestural","stacked","initial_bridge","terminal_loop","crossed","minimal","surname","split")
+PEN_STYLES=("gestural","stacked","initial_bridge","terminal_loop","crossed","minimal","surname","split","enclosed","interwoven")
 
 # Each tuple is one continuous pen movement. Coordinates use a baseline of 1.
 UPPER={
@@ -93,11 +94,15 @@ def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
     cap=rng.uniform(95,155);body=rng.uniform(.38,.82)
     compression=rng.uniform(.55,1.0);slant=rng.uniform(-.05,.6)
     angle=rng.uniform(-.15,.12);overlap=rng.uniform(.64,.98)
+    ornamental=family in {"enclosed","interwoven"}
+    if ornamental:
+        body=rng.uniform(.32,.52);compression=rng.uniform(.55,.78)
+        overlap=rng.uniform(.38,.58);slant=rng.uniform(.22,.6)
     angular=family in {"gestural","crossed"} and rng.random()<.5
     alternate=rng.randrange(2);width=rng.uniform(2.1,3.4)*(1.6 if bold else 1)
     resolution=3
     canvas=Image.new("RGBA",(max(1600,len(text)*150+600)*resolution,850*resolution));draw=ImageDraw.Draw(canvas)
-    strokes=[];first_ends=[];last=None;lift_count=0
+    strokes=[];first_ends=[];capital_boxes=[];last=None;lift_count=0
 
     def move(points,ox,oy,sx,sy):
         result=[]
@@ -133,7 +138,7 @@ def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
         forms=UPPER if is_cap else LOWER
         paths=(ALTERNATES if is_cap else LOWER_ALTERNATES).get(key,forms[key]) if alternate else forms[key]
         sy=cap*rng.uniform(.85,1.15) if is_cap else cap*body*rng.uniform(.85,1.15)
-        sx=sy*(rng.uniform(.8,1.25) if is_cap else compression)
+        sx=sy*(rng.uniform(1.15,1.6) if is_cap and ornamental else rng.uniform(.8,1.25) if is_cap else compression)
         baseline=355+line*145+rng.uniform(-3,3)
         oy=baseline-sy
         transformed=[move(p,x,oy,sx,sy) for p in paths]
@@ -144,12 +149,17 @@ def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
             pen([last,((last[0]+start[0])/2,last[1]-rng.uniform(1,10)),start])
         for points in transformed:pen(points)
         lift_count+=len(paths)-1
-        if is_cap:first_ends.append((transformed[0][0],transformed[0][-1]))
+        if is_cap:
+            first_ends.append((transformed[0][0],transformed[0][-1]))
+            points=[p for path in transformed for p in path]
+            capital_boxes.append((min(p[0] for p in points),min(p[1] for p in points),max(p[0] for p in points),max(p[1] for p in points)))
         last=transformed[0][-1]
         x+=max(12,max(p[0] for p in paths[0])*sx*overlap)
     left,top,right,bottom=(v/resolution for v in canvas.getbbox())
     ornament="none"
-    if family=="terminal_loop":
+    if family=="enclosed":ornament="enclosing_return"
+    elif family=="interwoven":ornament="interwoven_capitals"
+    elif family=="terminal_loop":
         ornament=rng.choice(("upper_oval","lower_oval","terminal_spiral"))
     elif family=="crossed":ornament="crossbar"
     elif family=="initial_bridge":ornament="bridge"
@@ -157,7 +167,28 @@ def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
     elif family in {"gestural","surname","stacked"}:ornament=rng.choice(("none","understrike","lower_oval","crossbar"))
     if ornament!="none" and last:
         start=last;end=first_ends[0][-1];span=max(80,right-left)
-        if ornament=="crossbar":
+        if ornament=="enclosing_return":
+            # Sample a broad rounded return rather than connecting a few
+            # corner points (which makes a triangular frame at small sizes).
+            cx=(left+right)/2;cy=(top+bottom)/2-cap*.12
+            rx=span*rng.uniform(.66,.8);ry=max(cap*.65,(bottom-top)*.65)
+            loop=[(cx+rx*cos(.65+i*2*pi/24),cy+ry*sin(.65+i*2*pi/24)) for i in range(25)]
+            pen([start,((start[0]+loop[0][0])/2,start[1]+cap*.12),loop[0]])
+            pen(loop)
+            pen([loop[-1],(left+span*.35,bottom+cap*.2),(right+span*.16,bottom-cap*.2)])
+        elif ornament=="interwoven_capitals":
+            # Distinct, overlapping bowls grow from each authored capital,
+            # rather than disconnected decorative scribbles over a typed name.
+            for (_,exit),bounds in zip(first_ends[:2],capital_boxes[:2]):
+                x0,y0,x1,y1=bounds;cx=(x0+x1)/2;cy=(y0+y1)/2
+                rx=max(cap*.45,(x1-x0)*.58);ry=max(cap*.55,(y1-y0)*.6)
+                # Start at the capital's terminal height and loop back through
+                # it. The bowls overlap because the capital advances overlap.
+                loop=[(cx+rx*cos(.7+i*2*pi/24),cy+ry*sin(.7+i*2*pi/24)) for i in range(25)]
+                pen([exit,((exit[0]+loop[0][0])/2,exit[1]+cap*.1),loop[0]])
+                pen(loop)
+            pen([start,(right+span*.12,bottom+cap*.06),(left-span*.12,bottom+cap*.22)])
+        elif ornament=="crossbar":
             pen([start,(right+75,top+40),(left-60,bottom-20),end])
         elif ornament=="bridge":
             pen([start,(right+50,start[1]-25),(left+span*.45,top-30),end])

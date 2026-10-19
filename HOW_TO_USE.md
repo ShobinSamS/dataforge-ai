@@ -290,6 +290,17 @@ heading and multiline body, or **Custom** for generated placeholders. Enable
 intentional. Use **Preview seal variation** to inspect both the pixels and the
 actual generated wording. See the [seal format catalog](docs/seals.md) for examples.
 Original seals are removed first using the selected full-region cleanup.
+For both signatures and seals, **Ink opacity → Random per sample** is enabled
+by default (45–100%). Change the minimum/maximum sliders for a different range,
+or select **Fixed opacity** to keep all impressions at a chosen strength.
+This varies ink transparency independently of the existing random thickness.
+Save and review the region, then generate a **new** dataset to see changes;
+existing output images are retained. Generation studio signature previews use
+the first signature region's saved opacity settings.
+Signature styles also include **broad enclosing return** and **overlapping
+capitals and compact letters**, adapted from the supplied sign7 sheet. See the
+[signature reference tests](docs/signature-research.md#sign7-regression-cases)
+for the 15-case gallery command and geometry checks.
 Choose **English cursive font** for synthetic handwriting; installed script fonts are
 used without tracing a writer. QR and barcode light backgrounds are transparent by
 default; white remains optional. Code masks cover the full logical rectangle. Dark

@@ -7,6 +7,7 @@ from PIL import Image,ImageDraw,ImageFilter
 from .fonts import installed_fonts,load_font,cursive_font_id,resolve_font_weight
 from .schemas import RuleOptions
 from .signature_strokes import PEN_STYLES,render_pen_signature
+from .ink import apply_ink_opacity
 
 EXPRESSIVE=("tall_initial","compact","angular","looped","sweeping")
 STYLES=("name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish")+EXPRESSIVE+PEN_STYLES
@@ -17,7 +18,7 @@ def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
     if not words:raise ValueError("Signature text needs at least one alphabetic character")
     first,last=words[0],words[-1]
     initials=first[0].upper()+(last[0].upper() if len(words)>1 else first[min(1,len(first)-1)].upper())
-    family=rng.choices(STYLES,weights=(1,1,1,1,1,1,1,1,2,2,2,2,2,5,4,4,4,4,3,4,4))[0] if style.signature_style=="mixed" else style.signature_style
+    family=rng.choices(STYLES,weights=(1,1,1,1,1,1,1,1,2,2,2,2,2,5,4,4,4,4,3,4,4,5,5))[0] if style.signature_style=="mixed" else style.signature_style
     if family=="single_letter":chunks=[rng.choice(initials)]
     elif family in {"two_letters","monogram"}:chunks=[initials]
     elif family=="initials":chunks=[" ".join(w[0].upper()+"." for w in words[:3])]
@@ -36,6 +37,8 @@ def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
     elif family=="split":chunks=[initials+" "+last[1:3].lower()]
     elif family=="crossed":chunks=[initials if rng.random()<.5 else first[:2]+last[:2]]
     elif family=="terminal_loop":chunks=[rng.choice((first,last,first+" "+last))]
+    elif family=="enclosed":chunks=[rng.choice((first,first[0].upper()+" "+last))]
+    elif family=="interwoven":chunks=[initials+last[1:].lower()]
     else:chunks=[value.strip()]
     fonts=installed_fonts()
     choices=[key for key in ("segoesc","freescpt","gabriola","brushsci","mistral","lhandw") if key in fonts]
@@ -214,7 +217,8 @@ def render_signature(size,value,rng:random.Random,style:RuleOptions):
         alpha=alpha.resize((size[0]*3,size[1]*3),Image.Resampling.BICUBIC).filter(ImageFilter.MaxFilter(radius*2+1)).resize(size,Image.Resampling.LANCZOS)
         layer=Image.new("RGBA",size,style.text_color);layer.putalpha(alpha)
         mask=alpha.point(lambda p:255 if p else 0)
-    info.update(stroke_weight=weight,thickness_scale=factor)
+    layer,mask,opacity_info=apply_ink_opacity(layer,rng,style,"signature")
+    info.update(stroke_weight=weight,thickness_scale=factor,**opacity_info)
     return layer,mask,info
 
 

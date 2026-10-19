@@ -9,8 +9,10 @@ import threading
 from collections import Counter
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
+from urllib.parse import urlencode
 import psutil
-from fastapi import FastAPI, UploadFile, HTTPException, Request, Query, Form
+from fastapi import FastAPI, UploadFile, HTTPException, Request, Query, Form, Depends
 from pydantic import Field
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse, JSONResponse, Response
@@ -344,11 +346,20 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
             reviewed_regions=normalize_regions([Region.model_validate(r) for r in t.regions],strict=True)
             return {**qr_preflight(reviewed_regions,body),"template_revision":t.revision}
 
+    def signature_ink_options(ink_opacity_mode: Literal["random","fixed"]="random",
+                              ink_opacity: float=Query(1,ge=.05,le=1,allow_inf_nan=False),
+                              ink_opacity_min: float=Query(.45,ge=.05,le=1,allow_inf_nan=False),
+                              ink_opacity_max: float=Query(1,ge=.05,le=1,allow_inf_nan=False)):
+        return RuleOptions(ink_opacity_mode=ink_opacity_mode,ink_opacity=ink_opacity,
+                           ink_opacity_min=ink_opacity_min,ink_opacity_max=ink_opacity_max)
+
     @app.get("/api/signatures/previews")
-    def signature_previews(style: SignatureStyle="mixed",seed: int=Query(42,ge=0,le=2**31-1)):
+    def signature_previews(style: SignatureStyle="mixed",seed: int=Query(42,ge=0,le=2**31-1),
+                           ink: RuleOptions=Depends(signature_ink_options)):
         names=("Arun Kumar","Mira Dev","Rohan Sen","Nila Shah","Dev Mehra","Sara Das")
+        opacity_query=urlencode({key:value for key,value in ink.model_dump().items() if key.startswith("ink_opacity")})
         return [{"style":signature_plan(name,random.Random((seed+i)%(2**31)),RuleOptions(signature_style=style))["style"],
-                 "url":f"/api/signatures/preview?style={style}&seed={(seed+i)%(2**31)}&name_index={i}&v=3"} for i,name in enumerate(names)]
+                 "url":f"/api/signatures/preview?style={style}&seed={(seed+i)%(2**31)}&name_index={i}&v=4&{opacity_query}"} for i,name in enumerate(names)]
 
     @app.post("/api/seals/preview")
     def seal_preview(body: SealPreviewRequest):
@@ -359,12 +370,14 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
         return {"image":"data:image/png;base64,"+base64.b64encode(buffer.getvalue()).decode(),"metadata":metadata}
 
     @app.get("/api/signatures/preview")
-    def signature_preview(style: SignatureStyle="mixed",seed: int=Query(42,ge=0,le=2**31-1),name_index: int=Query(0,ge=0,le=5)):
+    def signature_preview(style: SignatureStyle="mixed",seed: int=Query(42,ge=0,le=2**31-1),name_index: int=Query(0,ge=0,le=5),
+                          ink: RuleOptions=Depends(signature_ink_options)):
         names=("Arun Kumar","Mira Dev","Rohan Sen","Nila Shah","Dev Mehra","Sara Das")
         with CPU_LOCK:
-            layer,_,info=render_signature((480,160),names[name_index],random.Random(seed),RuleOptions(signature_style=style,text_color="#173574"))
+            options=ink.model_copy(update={"signature_style":style,"text_color":"#173574"})
+            layer,_,info=render_signature((480,160),names[name_index],random.Random(seed),options)
             buffer=io.BytesIO();layer.save(buffer,format="PNG")
-        return Response(buffer.getvalue(),media_type="image/png",headers={"Cache-Control":"no-store","X-Signature-Style":info["style"]})
+        return Response(buffer.getvalue(),media_type="image/png",headers={"Cache-Control":"no-store","X-Signature-Style":info["style"],"X-Ink-Opacity":str(info["opacity"])})
 
     @app.post("/api/jobs",status_code=201)
     def generate(body: GenerationConfig):

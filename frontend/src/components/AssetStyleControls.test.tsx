@@ -51,6 +51,8 @@ it("offers mixed, abbreviated and undecorated signatures and resets confirmation
     "minimal",
     "surname",
     "split",
+    "enclosed",
+    "interwoven",
   ]) {
     expect(Array.from(select.options).some((o) => o.value === value)).toBe(
       true,

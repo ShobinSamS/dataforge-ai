@@ -68,7 +68,13 @@ export interface RuleOptions {
     | "crossed"
     | "minimal"
     | "surname"
-    | "split";
+    | "split"
+    | "enclosed"
+    | "interwoven";
+  ink_opacity_mode?: "random" | "fixed";
+  ink_opacity?: number;
+  ink_opacity_min?: number;
+  ink_opacity_max?: number;
   seal_style?:
     | "random"
     | "ring"
@@ -171,8 +177,18 @@ export interface Job {
   created_at: string;
 }
 export interface Annotation {
-  seal?: { shape: string; content_mode: string; text: string };
-  signature?: { style: string; text: string; engine?: string };
+  seal?: {
+    shape: string;
+    content_mode: string;
+    text: string;
+    opacity?: number;
+  };
+  signature?: {
+    style: string;
+    text: string;
+    engine?: string;
+    opacity?: number;
+  };
   region_id: string;
   class_id: number;
   class: string;

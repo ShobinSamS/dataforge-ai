@@ -41,9 +41,13 @@ Adding more style names alone would not address that limitation.
 
 ## Implemented morphology
 
-Eight new English pen-path families supplement the previous thirteen forms:
+Ten English pen-path families supplement the previous thirteen forms:
 gestural abbreviation, stacked words, initials/letter bridge, terminal loop,
-crossed initials, minimal lettering, initial/surname and split letter clusters.
+crossed initials, minimal lettering, initial/surname, split letter clusters,
+enclosing returns and interwoven capitals. The latter two adapt sign7's broad
+rounded loops, overlapping capital bowls and dense small letter bodies. Returns
+are attached to lettering and sampled as rounded paths rather than polygonal
+frames. Mixed includes all 23 forms.
 The alphabet is authored locally with separate pen movements, alternate capital
 and lowercase letter constructions and smooth cardinal-spline joins. It does not
 depend on script-font availability. Independent seeded parameters vary body/cap
@@ -55,6 +59,12 @@ Auto pen weight also samples normal (60%), medium (25%) and bold (15%) ink.
 Weight uses a separate seeded stream and smooth alpha expansion, preserving the
 letter sequence, layout, ink color and transparent background. Explicit normal
 or bold choices stay fixed. Metadata records `stroke_weight` and `thickness_scale`.
+Opacity varies independently: the default is a seeded uniform range of 45–100%.
+In **Template editor → Rendering style and cleanup → Ink opacity**, adjust the
+minimum/maximum or choose **Fixed opacity** (5–100%). The same controls apply to
+seals. Opacity changes alpha only; lettering, color, thickness, geometry and
+binary masks remain identical at the same seed. Per-sample metadata records
+`opacity` and `opacity_mode`. Seal wear additionally varies local stamp contact.
 Metadata records these axes and `engine: pen-paths-v1`, `generator_version:
 signature-v3`, together with the actual drawn letter sequence.
 
@@ -81,3 +91,26 @@ compatibility. Dataset cards show the generated signature family.
 Run `python -m scripts.preview_signatures` for a reproducible catalogue and
 individual transparent PNGs. Use the live preview in Generation studio to check
 the selected style before generating a dataset.
+
+## sign7 regression cases
+
+`tests/fixtures/sign7-cases.json` maps all 15 reference positions (five rows,
+three columns) to observed composition features, a selected style, a fictional
+name and a reproducible seed. It covers enclosing loops, overlapping capital
+bowls, initial/letter bridges, crossed initials, compact surnames and abbreviated
+forms. These are style adaptations, not exact replicas of the named examples.
+
+Run `python -m scripts.preview_signature_reference` for the 15-case gallery,
+individual transparent PNGs, intended letter metadata and a signature/seal
+opacity comparison. This command does not change the checked-in baseline.
+`tests/fixtures/sign7-geometry.png` contains only generated binary mask
+thumbnails. Regression tests compare geometry against these reviewed images,
+check connected ink, and require closed loops in the new ornamental families.
+Explicit font and normal weight isolate composition from platform font choice,
+random thickness and opacity. Separate opacity tests check reproducibility,
+alpha scaling, unchanged masks/labels, transparent compositing and API validation.
+
+To deliberately replace the visual baseline after reviewing a renderer change,
+run `python -m scripts.preview_signature_reference --update-baseline`, inspect
+the gallery and review the fixture diff. Do not update it just to silence a
+failing geometry test. The supplied JPEG remains outside the repository.

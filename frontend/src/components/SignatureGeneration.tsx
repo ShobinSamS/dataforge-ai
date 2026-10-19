@@ -23,11 +23,18 @@ export default function SignatureGeneration({
     fields[0]?.rule_options?.signature_style ||
     "mixed";
   const seed = (config.seed + offset) % 2 ** 31;
+  const options = fields[0]?.rule_options;
+  const opacityQuery = new URLSearchParams({
+    ink_opacity_mode: options?.ink_opacity_mode || "random",
+    ink_opacity: String(options?.ink_opacity ?? 1),
+    ink_opacity_min: String(options?.ink_opacity_min ?? 0.45),
+    ink_opacity_max: String(options?.ink_opacity_max ?? 1),
+  }).toString();
   const previews = useQuery({
-    queryKey: ["signature_previews", style, seed],
+    queryKey: ["signature_previews", style, seed, opacityQuery],
     queryFn: () =>
       api<{ style: string; url: string }[]>(
-        `/signatures/previews?style=${style}&seed=${seed}`,
+        `/signatures/previews?style=${style}&seed=${seed}&${opacityQuery}`,
       ),
     enabled: show && config.signatures && !!fields.length,
   });
@@ -79,7 +86,9 @@ export default function SignatureGeneration({
         <>
           <p className="field-hint">
             Fictional style examples · first signature region · previews are
-            separate from dataset samples.
+            separate from dataset samples. Opacity uses this region's saved
+            settings. Change the range or choose fixed ink in Template editor →
+            Rendering style and cleanup.
           </p>
           {previews.isLoading && <p>Loading signature previews…</p>}
           {previews.error && <p role="alert">{previews.error.message}</p>}

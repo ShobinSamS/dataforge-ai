@@ -59,6 +59,14 @@ weight and worn contact. Designs are rendered on transparent layers; no white
 paper rectangle is pasted over the template. Full-region cleanup still removes
 the original seal before replacement.
 
+**Ink opacity** defaults to **Random per sample**, uniformly selecting 45–100%
+opacity. Adjust its minimum and maximum, or select **Fixed opacity** and choose
+5–100%. This changes the whole impression's alpha independently of layout,
+wording, color, pen weight and local wear. The same seed and settings reproduce
+the same result. Fading does not shrink binary annotation masks. `opacity` and
+`opacity_mode` are included in preview metadata and each generated seal
+annotation. Ink wear remains a separate control for uneven contact and holes.
+
 Both arcs use measured glyph advances along the ellipse. Text is fitted in full
 and never silently shortened; a format that cannot fit at the minimum font size
 asks for a larger region or shorter wording. A 125×125 field can hold generated

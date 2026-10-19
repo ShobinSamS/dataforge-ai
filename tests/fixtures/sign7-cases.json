@@ -1,0 +1,17 @@
+[
+  {"cell":"r1c1","feature":"Overlapping capitals, compact body and oblique return","style":"interwoven","name":"Arun Kumar","seed":12},
+  {"cell":"r1c2","feature":"Broad upper oval with short trailing lettering","style":"enclosed","name":"Mira Dev","seed":42},
+  {"cell":"r1c3","feature":"Small initials connected to a final letter","style":"initial_bridge","name":"Nila Shah","seed":79},
+  {"cell":"r2c1","feature":"Interlocked initials with a crossing stroke","style":"crossed","name":"Rohan Sen","seed":34},
+  {"cell":"r2c2","feature":"Two looped capitals over a dense small body","style":"interwoven","name":"Dev Mehra","seed":25},
+  {"cell":"r2c3","feature":"Tall rounded entry and a wide return","style":"enclosed","name":"Sara Das","seed":91},
+  {"cell":"r3c1","feature":"Prominent initial and smaller slanted surname","style":"surname","name":"Tara Rao","seed":12},
+  {"cell":"r3c2","feature":"Enclosing oval around compressed lettering","style":"enclosed","name":"Kiran Bose","seed":79},
+  {"cell":"r3c3","feature":"Initials with a small detached letter cluster","style":"split","name":"Riya Nair","seed":42},
+  {"cell":"r4c1","feature":"Wide upper loop with a long lower return","style":"enclosed","name":"Neel Verma","seed":25},
+  {"cell":"r4c2","feature":"Intersecting capital bowls and compressed ending","style":"interwoven","name":"Pavan Roy","seed":91},
+  {"cell":"r4c3","feature":"Dense crossed initials with a lateral sweep","style":"crossed","name":"Asha Kapur","seed":79},
+  {"cell":"r5c1","feature":"Low letter cluster and an extended bridge","style":"initial_bridge","name":"Mira Joshi","seed":34},
+  {"cell":"r5c2","feature":"Tall initial, compact surname and short return","style":"surname","name":"Ira Sen","seed":42},
+  {"cell":"r5c3","feature":"Abbreviated flowing letters and a short finish","style":"gestural","name":"Varun Das","seed":91}
+]
