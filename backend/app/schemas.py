@@ -5,6 +5,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator, field_validator
 from .patterns import pattern_parts, pattern_length
 from .seals import validate_seal_format,duplicate_words
+from .colors import DEFAULT_PALETTE
+from .addresses import DEFAULT_FORMAT,normalize_country,validate_format
 
 
 class Contract(BaseModel):
@@ -24,6 +26,10 @@ class FieldType(StrEnum):
     qr = "qr"
     barcode = "barcode"
     portrait = "portrait"
+    # Append new classes: existing YOLO/COCO class IDs must never move.
+    stamp = "stamp"
+    rubber_stamp = "rubber_stamp"
+    drawing = "drawing"
 
 
 CLASS_NAMES = [v.value for v in FieldType]
@@ -31,6 +37,8 @@ SignatureStyle = Literal["mixed","name","first_name","single_letter","two_letter
 
 
 class RuleOptions(Contract):
+    address_country: str = Field(default="",max_length=100)
+    address_format: str = Field(default=DEFAULT_FORMAT,min_length=1,max_length=500)
     date_format: Literal["yyyy-mm-dd","dd/mm/yyyy","mm/dd/yyyy","dd-mm-yyyy","yyyy/mm/dd"] = "yyyy-mm-dd"
     date_start: date = date(2015,1,1)
     date_end: date = date(2025,12,31)
@@ -40,10 +48,16 @@ class RuleOptions(Contract):
     literal_text: str | None = Field(default=None,min_length=1,max_length=1000)
     portrait_source: Literal["illustration","asset_pool"] = "illustration"
     portrait_asset_ids: list[str] = Field(default_factory=list,max_length=20)
+    portrait_background: Literal["preserve","transparent","solid","random"] = "preserve"
+    portrait_background_color: str = Field(default="#ffffff",pattern=r"^#[0-9a-fA-F]{6}$")
+    portrait_background_palette: list[str] = Field(default_factory=lambda:["#ffffff","#d9e8ff","#ddd9ef","#ddebd9"],min_length=1,max_length=20)
+    drawing_points: list[tuple[float,float]] = Field(default_factory=list,max_length=4000)
+    drawing_width: float = Field(default=3,ge=.5,le=80,allow_inf_nan=False)
     font_id: str = Field(default="auto",max_length=100,pattern=r"^[a-zA-Z0-9_.-]+$")
     font_size: int | None = Field(default=None,ge=6,le=200)
     text_color: str = Field(default="#000000",pattern=r"^#[0-9a-fA-F]{6}$")
-    color_mode: Literal["auto","manual"] = "auto"
+    color_mode: Literal["black","auto","manual","random","mixed"] = "black"
+    color_palette: list[str] = Field(default_factory=lambda:DEFAULT_PALETTE[:],min_length=1,max_length=20)
     font_weight: Literal["auto","normal","bold"] = "auto"
     background_mode: Literal["auto","solid"] = "auto"
     background_color: str = Field(default="#ffffff",pattern=r"^#[0-9a-fA-F]{6}$")
@@ -51,6 +65,8 @@ class RuleOptions(Contract):
     writing_style: Literal["printed","cursive"] = "printed"
     code_background: Literal["transparent","white"] = "transparent"
     signature_style: SignatureStyle = "mixed"
+    signature_content: Literal["current","name","alphabet","mixed"] = "current"
+    signature_thickness: float = Field(default=1,ge=1,le=5,allow_inf_nan=False)
     ink_opacity_mode: Literal["random","fixed"] = "random"
     ink_opacity: float = Field(default=1,ge=.05,le=1,allow_inf_nan=False)
     ink_opacity_min: float = Field(default=.45,ge=.05,le=1,allow_inf_nan=False)
@@ -58,7 +74,7 @@ class RuleOptions(Contract):
     ink_finish: Literal["clean","natural","worn"] = "natural"
     ink_irregularity: float = Field(default=.55,ge=0,le=1,allow_inf_nan=False)
     seal_style: Literal["random","ring","round","double_ring","oval","badge","square","rectangle","professional","form","dated","text","attestation","corporate","form_block","nameplate"] = "random"
-    seal_color: Literal["random","red","blue","green","purple","black","brown","mixed"] = "random"
+    seal_color: Literal["random","red","blue","green","purple","black","brown","mixed"] = "black"
     seal_text_mode: Literal["random","static","custom"] = "random"
     seal_allow_repeated_words: bool = False
     seal_text: str = Field(default="SAMPLE OFFICE",max_length=100)
@@ -76,6 +92,35 @@ class RuleOptions(Contract):
     seal_field_writing: Literal["printed","cursive"] = "printed"
     seal_embedded_signature: bool = False
     seal_signer_name: str = Field(default="",max_length=100)
+    stamp_style: Literal["random","portrait","architecture","botanical","commemorative","revenue"] = "random"
+    stamp_palette: Literal["black","custom","random","sepia","red","blue","green","purple","monochrome","multicolor"] = "black"
+    stamp_ink_mode: Literal["default","custom"] = "default"
+    stamp_color: str = Field(default="#000000",pattern=r"^#[0-9a-fA-F]{6}$")
+    stamp_issuer: str = Field(default="",max_length=80)
+    stamp_caption: str = Field(default="",max_length=100)
+    stamp_denomination: str = Field(default="",max_length=16)
+    stamp_perforated: bool = True
+    stamp_age: float = Field(default=.35,ge=0,le=1,allow_inf_nan=False)
+    stamp_cancellation: Literal["random","none","postmark","waves","pen"] = "none"
+    rubber_stamp_style: Literal["random","boxed","text","round","dated","postmark","waves"] = "boxed"
+    rubber_stamp_mode: Literal["random","static","custom"] = "random"
+    rubber_stamp_text: str = Field(default="RECEIVED",max_length=100)
+    rubber_stamp_format: str = Field(default="{department}\n{date}\nREF {reference}",max_length=480)
+    rubber_stamp_color: Literal["random","red","blue","green","purple","black","brown"] = "random"
+
+    @field_validator("address_country")
+    @classmethod
+    def valid_address_country(cls,value):return normalize_country(value)
+
+    @field_validator("address_format")
+    @classmethod
+    def valid_address_format(cls,value):return validate_format(value)
+
+    @field_validator("rubber_stamp_format")
+    @classmethod
+    def valid_rubber_format(cls,value):
+        try:return validate_seal_format(value)
+        except ValueError as exc:raise ValueError(str(exc).replace("Seal format","Rubber stamp format")) from exc
 
     @field_validator("seal_signer_name")
     @classmethod
@@ -100,6 +145,20 @@ class RuleOptions(Contract):
         if any(not re.fullmatch(r"[a-f0-9]{32}",v) for v in values):
             raise ValueError("Invalid portrait asset ID")
         return list(dict.fromkeys(values))
+
+    @field_validator("color_palette","portrait_background_palette")
+    @classmethod
+    def valid_colors(cls,values):
+        import re
+        if any(not re.fullmatch(r"#[0-9a-fA-F]{6}",value) for value in values):raise ValueError("Palette colors must use #RRGGBB format")
+        return list(dict.fromkeys(value.lower() for value in values))
+
+    @field_validator("drawing_points")
+    @classmethod
+    def valid_drawing(cls,values):
+        if any(not 0<=coordinate<=1 for point in values for coordinate in point):
+            raise ValueError("Drawing coordinates must be finite fractions between 0 and 1")
+        return values
 
     @model_validator(mode="after")
     def valid_dates(self):
@@ -176,7 +235,10 @@ class GenerationConfig(Contract):
     noise_sigma: float = Field(default=0, ge=0, le=12)
     signatures: bool = True
     signature_style_override: Literal["mixed"] | None = None
+    signature_content_override: Literal["current","name","alphabet","mixed"] | None = None
     seals: bool = True
+    stamps: bool = True
+    rubber_stamps: bool = True
     qr_codes: bool = True
     barcodes: bool = False
     max_retries: int = Field(default=2, ge=0, le=5)

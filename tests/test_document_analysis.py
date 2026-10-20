@@ -89,6 +89,70 @@ def test_general_values_are_not_limited_to_one_document_type():
         assert checked_value(text,category,value,context)==value
 
 
+@pytest.mark.parametrize("mode", ["existing", "printed", "handwritten"])
+def test_visual_only_upload_still_detects_text_lines(monkeypatch, mode):
+    from backend.app import ingest
+    image=Image.new("RGB",(500,300),"white")
+    regions=[Region(id="qr",kind="qr",box=[300,20,150,150],origin="visual")]
+    boxes=[(20,25,220,30)]
+    monkeypatch.setattr(ingest,"ocr",lambda image:([],"manual",["Printed OCR unavailable"]))
+    monkeypatch.setattr(analysis.vision_ocr,"capabilities",lambda:{"models":{"printed":True,"handwritten":True}})
+    detected=[];recognized=[]
+    def detect(image):
+        detected.append(True)
+        return boxes
+    def recognize(image, crops, selected_mode):
+        recognized.append((crops,selected_mode))
+        return [{"text":"Email: alex@example.invalid","confidence":.95}]
+    monkeypatch.setattr(analysis.vision_ocr,"detect_lines",detect)
+    monkeypatch.setattr(analysis.vision_ocr,"recognize",recognize)
+    records,engine,_=analysis.source_records(image,regions,mode)
+    assert detected==[True]
+    assert recognized==[(boxes,"printed" if mode=="existing" else mode)]
+    candidates,_,_=analysis.find_pii(records,"regex")
+    assert len(candidates)==1 and candidates[0]["kind"]=="email"
+    assert candidates[0]["box"]==list(boxes[0])
+    assert regions[0].kind=="qr" and not regions[0].text
+
+
+def test_explicit_text_crops_are_preserved_alongside_visual_boxes(monkeypatch):
+    image=Image.new("RGB",(500,300),"white")
+    regions=[Region(id="qr",kind="qr",box=[300,20,150,150],origin="visual"),
+             Region(id="line",kind="text",box=[20,25,220,30],origin="manual")]
+    def unexpected(image):
+        pytest.fail("Explicit text crops must be preserved")
+    monkeypatch.setattr(analysis.vision_ocr,"detect_lines",unexpected)
+    def recognize(image,boxes,mode):
+        assert boxes==[regions[1].box]
+        return [{"text":"Alex Example","confidence":.95}]
+    monkeypatch.setattr(analysis.vision_ocr,"recognize",recognize)
+    records,_,_=analysis.source_records(image,regions,"printed")
+    assert len(records)==1 and records[0].box==regions[1].box
+
+
+def test_pii_route_visual_only_fallback_is_draft_only(tmp_path,monkeypatch):
+    from backend.app import ingest
+    app=create_app(f"sqlite:///{tmp_path/'db.sqlite'}",tmp_path,start_worker=False)
+    image=Image.new("RGB",(500,300),"white");path=tmp_path/"page.png";image.save(path)
+    qr=Region(id="qr",kind="qr",box=[300,20,150,150],origin="visual")
+    with app.state.sessions.begin() as db:
+        db.add(Template(id="visual",name="visual",image_path=str(path),width=500,height=300,
+                        regions=[qr.model_dump(mode="json")]))
+    monkeypatch.setattr(ingest,"ocr",lambda image:([],"manual",[]))
+    monkeypatch.setattr(analysis.vision_ocr,"capabilities",lambda:{"models":{"printed":True}})
+    monkeypatch.setattr(analysis.vision_ocr,"detect_lines",lambda image:[(20,25,220,30)])
+    monkeypatch.setattr(analysis.vision_ocr,"recognize",lambda *args:[{"text":"Email: alex@example.invalid","confidence":.95}])
+    with TestClient(app) as client:
+        before=client.get("/api/templates/visual").json()
+        response=client.post("/api/templates/visual/analyze-pii",json={"regions":before["regions"],"engine":"regex"})
+        assert response.status_code==200,response.text
+        result=response.json()
+        assert result["ocr_engine"]=="trocr-small-printed" and result["analyzed_count"]==1
+        assert result["candidates"][0]["pii_value"]=="alex@example.invalid"
+        assert result["candidates"][0]["box"]==[20,25,220,30]
+        assert client.get("/api/templates/visual").json()==before
+
+
 def test_analysis_routes_draft_only_tables_and_model_failure(tmp_path,monkeypatch):
     app=create_app(f"sqlite:///{tmp_path/'db.sqlite'}",tmp_path,start_worker=False)
     image=grid();path=tmp_path/"page.png";image.save(path)

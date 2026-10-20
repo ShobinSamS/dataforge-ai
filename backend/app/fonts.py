@@ -176,7 +176,7 @@ def prepare_typography(source: Path, regions: list) -> list:
         image=opened.convert("RGB")
     prepared=[]
     for region in regions:
-        if not region.replace or region.kind in {"signature","seal","qr","barcode","portrait"}:
+        if not region.replace or region.kind in {"signature","seal","stamp","rubber_stamp","qr","barcode","portrait","drawing"}:
             prepared.append(region);continue
         style=region.rule_options.model_copy(deep=True)
         x,y,w,h=region.box

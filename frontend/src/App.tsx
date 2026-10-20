@@ -15,6 +15,7 @@ import {
 import {
   Activity,
   ArrowDownToLine,
+  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   BarChart3,
@@ -71,8 +72,11 @@ import DeleteDataset from "./components/DeleteDataset";
 import SignatureGeneration from "./components/SignatureGeneration";
 import RegionRuleControls from "./components/RegionRuleControls";
 import DocumentOutputControls from "./components/DocumentOutputControls";
+import BlankCanvasDialog from "./components/BlankCanvasDialog";
+import CanvasTools from "./components/CanvasTools";
 import Dashboard from "./pages/Dashboard";
 import TextStudio from "./pages/TextStudio";
+import McpTools from "./pages/McpTools";
 import { Badge, Empty, Stat } from "./components/ui";
 import type { Page } from "./types";
 
@@ -115,7 +119,10 @@ const defaults: Config = {
   noise_sigma: 0,
   signatures: true,
   signature_style_override: "mixed",
+  signature_content_override: "mixed",
   seals: true,
+  stamps: true,
+  rubber_stamps: true,
   qr_codes: true,
   barcodes: false,
   max_retries: 2,
@@ -156,6 +163,7 @@ export default function App() {
     templates.find((t) => t.id === templateId) || templates[0];
   const selectedJob = jobs.find((j) => j.id === jobId) || jobs[0];
   const [analysisPreview, setAnalysisPreview] = useState<Region[]>([]);
+  const [canvasPreview, setCanvasPreview] = useState("");
   const [qrPreflightState, setQrPreflightState] = useState<
     "checking" | "valid" | "invalid"
   >("checking");
@@ -164,7 +172,6 @@ export default function App() {
     [privacy, setPrivacy] = useState(false),
     [config, setConfig] = useState<Config>(defaults),
     [format, setFormat] = useState("yolo"),
-    [exportReview, setExportReview] = useState(false),
     [sampleOffset, setSampleOffset] = useState(0),
     [sampleSelected, setSampleSelected] = useState<Sample | null>(null);
   useEffect(() => {
@@ -183,9 +190,23 @@ export default function App() {
   }, [selectedTemplate?.id, selectedTemplate?.revision]);
   useEffect(() => {
     setSampleOffset(0);
-    setExportReview(false);
     setSampleSelected(null);
   }, [selectedJob?.id]);
+  useEffect(() => {
+    if (selectedTemplate?.engine === "canvas") {
+      setConfig((c) => ({
+        ...c,
+        name: selectedTemplate.name.slice(0, 100),
+        count: 1,
+        signature_style_override: null,
+        signature_content_override: null,
+        barcodes: true,
+        blur_probability: 0,
+        rotation_probability: 0,
+        noise_sigma: 0,
+      }));
+    }
+  }, [selectedTemplate?.id]);
   const { data: samples = [] } = useQuery({
     queryKey: ["samples", selectedJob?.id, sampleOffset],
     queryFn: () =>
@@ -246,7 +267,9 @@ export default function App() {
       await api(`/templates/${selectedTemplate.id}/review`, {
         method: "PUT",
         body: JSON.stringify({
-          regions,
+          regions: privacy
+            ? regions.map((r) => ({ ...r, confirmed: true }))
+            : regions,
           privacy_confirmed: privacy,
           revision: selectedTemplate.revision,
         }),
@@ -255,7 +278,7 @@ export default function App() {
       setNotice(
         privacy
           ? "Review confirmed. This template is ready for generation."
-          : "Draft saved. Confirm privacy review before generation.",
+          : "Draft saved. Confirm the template review before generation.",
       );
     });
   const run = () =>
@@ -300,7 +323,7 @@ export default function App() {
     act("Packaging dataset", async () => {
       const result = await post<{ download_url: string; count: number }>(
         `/jobs/${selectedJob!.id}/exports`,
-        { format, review_confirmed: exportReview },
+        { format, review_confirmed: true },
       );
       await qc.invalidateQueries({ queryKey: ["exports"] });
       const a = document.createElement("a");
@@ -315,25 +338,49 @@ export default function App() {
       rs.map((r) => (r.id === selected ? { ...r, ...patch } : r)),
     );
   };
+  const recheck = () =>
+    act("Rechecking samples", async () => {
+      const result = await post<{ accepted: number; total: number }>(
+        `/jobs/${selectedJob!.id}/revalidate`,
+        {},
+      );
+      await Promise.all(
+        ["jobs", "quality", "samples"].map((key) =>
+          qc.invalidateQueries({ queryKey: [key] }),
+        ),
+      );
+      setNotice(
+        `Recheck complete: ${result.accepted}/${result.total} samples accepted. Images were unchanged.`,
+      );
+    });
   const field = regions.find((r) => r.id === selected);
   const allCompleted = jobs.reduce((n, j) => n + j.completed, 0),
     active = jobs.filter((j) =>
       ["queued", "running", "cancelling"].includes(j.status),
     );
   const uploadButton = (
-    <label className="btn primary">
-      <Plus size={16} /> New template
-      <input
-        type="file"
-        accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff"
-        onChange={(e) => {
-          upload(e.target.files?.[0]);
-          e.target.value = "";
-        }}
-        hidden
+    <>
+      <BlankCanvasDialog
         disabled={!!busy}
+        onCreated={async (t) => {
+          await qc.invalidateQueries({ queryKey: ["templates"] });
+          openTemplate(t);
+        }}
       />
-    </label>
+      <label className="btn primary">
+        <Plus size={16} /> New template
+        <input
+          type="file"
+          accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff"
+          onChange={(e) => {
+            upload(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+          hidden
+          disabled={!!busy}
+        />
+      </label>
+    </>
   );
   const jobPicker = (
     <select
@@ -485,7 +532,7 @@ export default function App() {
             <div className="profile-avatar">LW</div>
             <div>
               <strong>Local user</strong>
-              <small>DataForge v0.1 · Proof of concept</small>
+              <small>DataForge v0.1 · Local workspace</small>
             </div>
           </div>
         </div>
@@ -656,7 +703,10 @@ export default function App() {
                     type="file"
                     accept=".pdf,.png,.jpg,.jpeg,.tif,.tiff"
                     hidden
-                    onChange={(e) => upload(e.target.files?.[0])}
+                    onChange={(e) => {
+                      upload(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
                     disabled={!!busy}
                   />
                 </label>
@@ -694,27 +744,44 @@ export default function App() {
                       : "Review needed"}
                   </Badge>
                 </div>
-                <VisualRegions
-                  key={`visual-${selectedTemplate.id}`}
-                  template={selectedTemplate}
-                  regions={regions}
-                  onApply={(rs) => {
-                    setRegions(rs);
-                    setPrivacy(false);
-                    setSelected("");
-                  }}
-                />
-                <DocumentAnalysis
-                  key={selectedTemplate.id}
-                  template={selectedTemplate}
-                  regions={regions}
-                  onPreview={setAnalysisPreview}
-                  onApply={(rs) => {
-                    setRegions(rs);
-                    setPrivacy(false);
-                    setSelected("");
-                  }}
-                />
+                {selectedTemplate.engine !== "canvas" && (
+                  <>
+                    <VisualRegions
+                      key={`visual-${selectedTemplate.id}`}
+                      template={selectedTemplate}
+                      regions={regions}
+                      onApply={(rs) => {
+                        setRegions(rs);
+                        setPrivacy(false);
+                        setSelected("");
+                      }}
+                    />
+                    <DocumentAnalysis
+                      key={selectedTemplate.id}
+                      template={selectedTemplate}
+                      regions={regions}
+                      onPreview={setAnalysisPreview}
+                      onApply={(rs) => {
+                        setRegions(rs);
+                        setPrivacy(false);
+                        setSelected("");
+                      }}
+                    />
+                  </>
+                )}
+                {selectedTemplate.engine === "canvas" && (
+                  <CanvasTools
+                    template={selectedTemplate}
+                    regions={regions}
+                    selected={selected}
+                    onSelect={setSelected}
+                    onPreview={setCanvasPreview}
+                    onChange={(rs) => {
+                      setRegions(rs);
+                      setPrivacy(false);
+                    }}
+                  />
+                )}
                 <div className="editor-grid">
                   <RegionEditor
                     template={selectedTemplate}
@@ -722,6 +789,11 @@ export default function App() {
                     suggestions={analysisPreview}
                     selected={selected}
                     onSelect={setSelected}
+                    previewUrl={
+                      selectedTemplate.engine === "canvas"
+                        ? canvasPreview
+                        : undefined
+                    }
                     onChange={(rs) => {
                       setRegions(rs);
                       setPrivacy(false);
@@ -824,10 +896,14 @@ export default function App() {
                             {fieldTypes.map((t) => (
                               <option key={t} value={t}>
                                 {t === "seal"
-                                  ? "seal / stamp"
-                                  : t === "portrait"
-                                    ? "portrait / photo"
-                                    : t}
+                                  ? "Seal"
+                                  : t === "stamp"
+                                    ? "Postage / revenue stamp"
+                                    : t === "rubber_stamp"
+                                      ? "Rubber stamp (Approved / Received / postmark)"
+                                      : t === "portrait"
+                                        ? "portrait / photo"
+                                        : t}
                               </option>
                             ))}
                           </select>
@@ -864,29 +940,6 @@ export default function App() {
                             <p>{field.pii_reason}</p>
                           </div>
                         )}
-                        <label className="check-label">
-                          <input
-                            type="checkbox"
-                            checked={field.sensitive}
-                            onChange={(e) =>
-                              updateRegion({
-                                sensitive: e.target.checked,
-                                confirmed: false,
-                              })
-                            }
-                          />
-                          Contains sensitive content
-                        </label>
-                        <label className="check-label">
-                          <input
-                            type="checkbox"
-                            checked={field.confirmed}
-                            onChange={(e) =>
-                              updateRegion({ confirmed: e.target.checked })
-                            }
-                          />
-                          I verified this region
-                        </label>
                       </div>
                     ) : (
                       <p className="field-hint">
@@ -899,7 +952,7 @@ export default function App() {
                 <div className="review-box">
                   <ShieldCheck size={23} />
                   <div>
-                    <h3>Confirm your privacy review</h3>
+                    <h3>Review all regions together</h3>
                     <p>
                       OCR can miss text and visual identifiers. Inspect the
                       entire page, including signatures, stamps and codes.
@@ -911,8 +964,8 @@ export default function App() {
                         checked={privacy}
                         onChange={(e) => setPrivacy(e.target.checked)}
                       />
-                      I reviewed all sensitive regions and verified that each is
-                      selected, confirmed and replaced or erased.
+                      I reviewed the whole template, all selected regions and
+                      their keep, replace or erase actions.
                     </label>
                   </div>
                 </div>
@@ -969,7 +1022,7 @@ export default function App() {
                 </label>
                 {selectedTemplate && !selectedTemplate.privacy_confirmed && (
                   <div className="alert warning">
-                    This template needs a confirmed privacy review.
+                    Save a confirmed template review before generation.
                     <button
                       className="text-button"
                       onClick={() => go("Template editor")}
@@ -1036,8 +1089,18 @@ export default function App() {
                       ],
                       [
                         "seals",
-                        "Synthetic seals / stamps",
+                        "Synthetic seals",
                         "Varied wording, layouts and ink",
+                      ],
+                      [
+                        "stamps",
+                        "Postage / revenue stamps",
+                        "Printed paper, artwork and perforations",
+                      ],
+                      [
+                        "rubber_stamps",
+                        "Rubber stamps",
+                        "Approval marks, dates and postmarks",
                       ],
                       ["qr_codes", "QR codes", "Synthetic record payload"],
                       ["barcodes", "Barcodes", "Code 128 synthetic IDs"],
@@ -1046,7 +1109,7 @@ export default function App() {
                     <label className="asset-option" key={key}>
                       <input
                         type="checkbox"
-                        checked={config[key]}
+                        checked={config[key] ?? true}
                         onChange={(e) =>
                           setConfig((c) => ({
                             ...c,
@@ -1331,6 +1394,10 @@ export default function App() {
             (selectedJob ? (
               <>
                 <div className="section-toolbar">
+                  <button className="btn" onClick={() => go("Job monitor")}>
+                    <ArrowLeft size={15} />
+                    Back to jobs
+                  </button>
                   <Badge status={selectedJob.status} />
                   <span className="muted">
                     {selectedJob.completed} samples · {selectedJob.name}
@@ -1340,6 +1407,18 @@ export default function App() {
                     busy={!!busy}
                     onDeleted={datasetDeleted}
                   />
+                  <button
+                    className="btn"
+                    disabled={
+                      !!busy ||
+                      !["completed", "review_required"].includes(
+                        selectedJob.status,
+                      )
+                    }
+                    onClick={recheck}
+                  >
+                    Recheck samples
+                  </button>
                   <button
                     className="btn"
                     onClick={() => go("Quality dashboard")}
@@ -1437,6 +1516,12 @@ export default function App() {
               <Empty
                 title="Your datasets will appear here"
                 body="Start a generation run to build your first collection."
+                action={
+                  <button className="btn" onClick={() => go("Job monitor")}>
+                    <ArrowLeft size={15} />
+                    Back to jobs
+                  </button>
+                }
               />
             ))}
 
@@ -1607,21 +1692,26 @@ export default function App() {
                         validation results.
                       </p>
                     </div>
-                    <div className="review-box compact">
-                      <label className="check-label">
-                        <input
-                          type="checkbox"
-                          checked={exportReview}
-                          onChange={(e) => setExportReview(e.target.checked)}
-                        />
-                        I inspected generated samples for remaining sensitive
-                        content and reviewed the validation limitations.
-                      </label>
-                    </div>
+                    <p className="field-hint">
+                      Inspect the generated samples and validation results
+                      before downloading. This action confirms your dataset
+                      review.
+                    </p>
+                    <button
+                      className="btn"
+                      disabled={
+                        !!busy ||
+                        !["completed", "review_required"].includes(
+                          selectedJob.status,
+                        )
+                      }
+                      onClick={recheck}
+                    >
+                      Recheck samples
+                    </button>
                     <button
                       className="btn primary full-width"
                       disabled={
-                        !exportReview ||
                         !!busy ||
                         !["completed", "review_required"].includes(
                           selectedJob.status,
@@ -1630,7 +1720,7 @@ export default function App() {
                       onClick={download}
                     >
                       <ArrowDownToLine size={16} />
-                      Build & download ZIP
+                      Confirm review & download ZIP
                     </button>
                   </>
                 ) : (
@@ -1699,7 +1789,7 @@ export default function App() {
                         : "Not installed; native PDF text / manual regions",
                   ],
                   ["Remote inference", "Disabled; local Ollama supported"],
-                  ["Authentication", "Loopback-only proof of concept"],
+                  ["Authentication", "Loopback-only local workspace"],
                 ].map(([k, v]) => (
                   <div className="setting-row" key={k}>
                     <span>{k}</span>
@@ -1729,15 +1819,12 @@ export default function App() {
             </div>
           )}
 
-          {["AI image studio", "Agent activity", "MCP tools"].includes(
-            page,
-          ) && (
+          {page === "MCP tools" && <McpTools />}
+          {["AI image studio", "Agent activity"].includes(page) && (
             <section className="panel extension-panel">
               <span className="extension-icon">
                 {page === "AI image studio" ? (
                   <FileImage size={36} />
-                ) : page === "MCP tools" ? (
-                  <Boxes size={36} />
                 ) : (
                   <Workflow size={36} />
                 )}
@@ -1746,16 +1833,12 @@ export default function App() {
               <h2>
                 {page === "AI image studio"
                   ? "Local diffusion requires a benchmark first"
-                  : page === "Agent activity"
-                    ? "Shared local reasoning comes after the core pipeline"
-                    : "MCP interoperability is planned"}
+                  : "Shared local reasoning comes after the core pipeline"}
               </h2>
               <p>
                 {page === "AI image studio"
                   ? "Stable Diffusion 1.5 + LCM is not installed or enabled. The target laptop needs measured 256×256 and 512×512 latency, memory and quality results before enabling image inference."
-                  : page === "Agent activity"
-                    ? "Qwen text generation is available in Text datasets through local Ollama. LangGraph agents and local RAG are not implemented. The architecture defines future planning nodes sharing one local model."
-                    : "No MCP server runs in this proof of concept. The architecture documents typed tool contracts for the existing FastAPI services. This page does not simulate tool calls."}
+                  : "Qwen text generation is available in Text datasets through local Ollama. LangGraph agents and local RAG are not implemented. The architecture defines future planning nodes sharing one local model."}
               </p>
               <button
                 className="btn primary"
@@ -1789,6 +1872,10 @@ export default function App() {
           <Dialog.Overlay className="modal-overlay" />
           <Dialog.Content className="modal">
             <div className="row-between">
+              <Dialog.Close className="btn small">
+                <ArrowLeft size={15} />
+                Back to gallery
+              </Dialog.Close>
               <Dialog.Title>
                 Sample{" "}
                 {sampleSelected

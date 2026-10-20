@@ -1,10 +1,12 @@
 """Local configuration. Model inference stays local; portrait imports require opt-in."""
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="DATAFORGE_", env_file=".env", extra="ignore")
+    api_port: int = Field(default=8000,ge=1,le=65535)
     data_dir: Path = Path("data")
     database_url: str = "sqlite:///./data/dataforge.db"
     ocr_engine: str = "auto"

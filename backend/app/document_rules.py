@@ -10,6 +10,7 @@ from .local_llm import LocalLLM
 from .config import settings
 from .format_references import format_references
 from .patterns import pattern_parts
+from .addresses import address_request,parse_address_prompt,COUNTRIES,FIELDS,DEFAULT_FORMAT
 
 
 class RulePlan(Contract):
@@ -44,6 +45,13 @@ def known_plan(region: Region) -> RulePlan | None:
     elif any(word in low for word in ("photo","portrait","human image","human face","person image")):
         plan.kind=FieldType.portrait;plan.action="replace"
         plan.explanation="Insert a fictional offline portrait illustration, or select an approved photo pool. No web request is made by interpreting this prompt."
+    elif address_request(region.kind,prompt):
+        parsed=parse_address_prompt(prompt,region.rule_options.address_country,region.rule_options.address_format)
+        if parsed is None:return None
+        plan.kind=FieldType.address;plan.action="replace"
+        plan.options.address_country,plan.options.address_format=parsed
+        plan.options.identifier_pattern="";plan.options.character_length=None
+        plan.explanation=f"Generate a fresh synthetic {COUNTRIES[parsed[0]]} address per sample, using the displayed component format and bundled postal-reference rows. Street and house number are synthetic; deliverability is not verified."
     elif re.fullmatch(r"(?:please\s+)?(?:pan(?:\s*card)?|permanent\s+account\s+number)(?:\s+(?:number|pattern|format))*",prompt,re.I) or re.fullmatch(r"[A9X-]{2,128}",prompt) or ("{" in prompt and not re.search(r"\s",prompt) and _valid_template(prompt)):
         plan.kind=region.kind if region.kind in {"qr","barcode"} else FieldType.identifier;plan.action="replace"
         plan.options.identifier_pattern="AAAAA9999A" if format_references(prompt) else prompt
@@ -84,8 +92,9 @@ def apply_plan(region: Region, plan: RulePlan, preserve_confirmation: bool = Fal
     options=plan.options.model_copy(deep=True)
     # A model cannot invent asset IDs or select files; only the user's current approved pool is retained.
     options.portrait_asset_ids=region.rule_options.portrait_asset_ids[:]
+    if plan.kind=="stamp": options.portrait_source=region.rule_options.portrait_source
     # Typography is selected from the local source/UI, never invented by a model.
-    for key in ("font_id","font_size","text_color","color_mode","font_weight","background_mode","background_color","cleanup_mode","writing_style","code_background","signature_style",*(key for key in RuleOptions.model_fields if key.startswith("seal_"))):
+    for key in ("font_id","font_size","text_color","color_mode","color_palette","font_weight","background_mode","background_color","cleanup_mode","writing_style","code_background","signature_style","signature_content","signature_thickness",*(key for key in RuleOptions.model_fields if key.startswith(("seal_","stamp_","rubber_stamp_","ink_","drawing_","portrait_background")))):
         setattr(options,key,getattr(region.rule_options,key))
     if plan.kind not in {"text","identifier","qr","barcode"}:
         options.identifier_pattern="";options.character_length=None
@@ -112,13 +121,19 @@ def _model_plan(payload: dict, properties: dict, region: Region, pattern_request
         for key in RuleOptions.model_fields:
             if key not in properties: payload["options"].pop(key,None)
     plan=RulePlan.model_validate(payload)
+    if plan.supported and plan.action=="replace" and not region.rule.lower().startswith("literal:") and address_request(region.kind,region.rule):
+        if plan.kind!="address" or not plan.options.address_country or plan.options.literal_text is not None:
+            raise ValueError("Address generation needs kind=address, a supported country, and a component format, never a literal sample")
+        expected=parse_address_prompt(region.rule,region.rule_options.address_country,region.rule_options.address_format)
+        if expected and (plan.options.address_country,plan.options.address_format)!=expected:
+            raise ValueError("Address country, components, order and line breaks must match the requested address rule")
     defaults=RuleOptions()
     if plan.supported and plan.action=="replace" and plan.options.literal_text is None:
         if plan.kind!="date" and not plan.options.identifier_pattern and any(getattr(plan.options,key)!=getattr(defaults,key) for key in ("date_format","date_start","date_end")):
             raise ValueError("Date options require a date field; select the date type and retry")
         if plan.options.identifier_pattern and plan.kind not in {"identifier","text","qr","barcode"}:
             raise ValueError("Character patterns require a text, identifier, QR or barcode field")
-        if plan.options.portrait_source=="asset_pool" and plan.kind!="portrait":
+        if plan.options.portrait_source=="asset_pool" and plan.kind not in {"portrait","stamp"}:
             raise ValueError("Portrait source requires a portrait field")
         if pattern_request:
             if not plan.options.identifier_pattern: raise ValueError("A custom format requires a nonempty pattern")
@@ -142,9 +157,14 @@ def interpret_local(region: Region) -> RulePlan:
             schema["properties"][name].pop("default",None)
         # Give Qwen only options owned by the semantic tool; fonts/assets stay local.
         properties=schema["$defs"]["RuleOptions"]["properties"]
-        for key in ("portrait_asset_ids","font_id","font_size","text_color","color_mode","font_weight","background_mode","background_color"): properties.pop(key,None)
-        date_request=bool(re.search(r"\b(?:date|dob|birth|birthday)\b|(?:dd|mm|yyyy)[/-](?:dd|mm|yyyy)",region.rule,re.I))
-        pattern_request=not date_request and bool(re.search(r"\b(?:pattern|format|sku|serial|identifier|digits?|letters?|alphanumeric|characters?|code|pan|pancard|permanent account number)\b",region.rule,re.I)) and not region.rule.lower().startswith("literal:")
+        for key in ("portrait_asset_ids","font_id","font_size","text_color","color_mode","color_palette","font_weight","background_mode","background_color"): properties.pop(key,None)
+        # Rendering controls are retained from the UI in apply_plan. Keep them
+        # out of the small local model's context as more asset types are added.
+        for key in list(properties):
+            if key.startswith(("seal_","stamp_","rubber_stamp_","ink_","drawing_","portrait_background")) or key in {"signature_thickness","signature_content"}: properties.pop(key)
+        address_mode=address_request(region.kind,region.rule) and not region.rule.lower().startswith("literal:")
+        date_request=not address_mode and bool(re.search(r"\b(?:date|dob|birth|birthday)\b|(?:dd|mm|yyyy)[/-](?:dd|mm|yyyy)",region.rule,re.I))
+        pattern_request=not address_mode and not date_request and bool(re.search(r"\b(?:pattern|format|sku|serial|identifier|digits?|letters?|alphanumeric|characters?|code|pan|pancard|permanent account number)\b",region.rule,re.I)) and not region.rule.lower().startswith("literal:")
         if re.search(r"\b(?:remove|erase|delete|clear|keep|preserve|photo|portrait)\b",region.rule,re.I): pattern_request=False
         if pattern_request:
             properties={key:properties[key] for key in ("identifier_pattern",)}
@@ -152,8 +172,18 @@ def interpret_local(region: Region) -> RulePlan:
             schema["$defs"]["RuleOptions"]["required"]=["identifier_pattern"]
             schema["properties"]["kind"]={"type":"string","const":region.kind.value if region.kind in {"qr","barcode"} else "identifier"}
             schema["properties"]["action"]={"type":"string","const":"replace"}
+        if address_mode:
+            properties={key:properties[key] for key in ("address_country","address_format")}
+            properties['address_country']={'type':'string','enum':list(COUNTRIES)}
+            schema['$defs']['RuleOptions']['properties']=properties
+            schema['$defs']['RuleOptions']['required']=['address_country','address_format']
+            schema['properties']['kind']={'type':'string','const':'address'}
+            schema['properties']['action']={'type':'string','const':'replace'}
         context={"instruction":region.rule,"current_type":region.kind.value,"today":date.today().isoformat(),
                          "verified_format_references":format_references(region.rule),"max_output_characters":500 if region.kind=="qr" else 128}
+        if address_mode:
+            context.update(supported_address_countries=COUNTRIES,address_components=sorted(FIELDS),
+                           current_address_country=region.rule_options.address_country,current_address_format=region.rule_options.address_format)
         if pattern_request:
             context["pattern_examples"]=[
                 {"instruction":"3 uppercase letters then 6 digits","identifier_pattern":"{upper:3}{digits:6}"},
@@ -164,6 +194,15 @@ def interpret_local(region: Region) -> RulePlan:
             "format":schema,"options":{"temperature":0,"num_ctx":4096,"num_predict":1200,"num_gpu":0,"num_thread":4},
             "messages":[{"role":"system","content":"Compile one document-field instruction to a supported executable plan. No tools, network, code or paths. Actions: replace, erase, keep. Dates use kind=date, photos kind=portrait, custom codes kind=identifier (preserve qr/barcode kind for payload rules). Compile any supported custom code format with {upper:N}, {lower:N}, {digits:N}, {alnum:N}, {year}, {month}, {day}. Date tokens use one random date within the date bounds; fixed dates use literals. Literal text outside braces is copied ONLY when explicitly requested. Never invent a prefix, suffix or separator. Adjacent groups have no hyphen unless requested. N is 1–500; output must not exceed max_output_characters from input (128 normally, 500 for QR). Legacy A/9/X tokens are also supported. Never return a sample as literal_text for a random pattern. Never add SYN- or unrequested text. Dates use allowed formats and ISO bounds. Unused options retain defaults. Set supported=true for executable requests, false only for unsupported operations or ambiguity. Checksums, externally validated numbers and incrementing sequences are unsupported; do not pretend random digits satisfy those constraints. Never invent fonts or asset IDs."},
                         {"role":"user","content":json.dumps(context)}]}
+        if address_mode:
+            request['messages'][0]['content']=("Compile a synthetic address instruction to kind=address, action=replace. "
+                "Return address_country as one supported ISO country code and address_format as a string of simple component placeholders, "
+                "such as {street}, {city}, {state}, {country}, {postal_code}. Preserve the requested component order, separators and line breaks. "
+                "PIN, ZIP and postcode mean {postal_code}. Each component on a separate line means newline separators. "
+                "Use the current country/format when the instruction does not change them. Never return an example address as literal_text. "
+                "The app generates new streets and samples matching locality/state/postal rows locally; do not invent geographic mappings. "
+                "Unsupported countries, city/state filters, real deliverable addresses, language/translation requests or other unimplemented constraints require supported=false. "
+                "Do not guess a country if none was supplied or selected. No tools, network, code or paths.")
         for attempt in range(2):
             response=llm.client.post("/api/chat",json=request)
             response.raise_for_status()

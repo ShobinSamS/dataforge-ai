@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api, post } from "../api";
 import type { Region, RuleOptions } from "../types";
+import ColorControls from "./ColorControls";
 
 export default function FontControls({
   field,
@@ -77,30 +78,7 @@ export default function FontControls({
           }
         />
       </label>
-      <label>
-        Text color mode
-        <select
-          value={options.color_mode || "auto"}
-          onChange={(e) =>
-            setOptions({
-              color_mode: e.target.value as RuleOptions["color_mode"],
-            })
-          }
-        >
-          <option value="auto">Match original lettering</option>
-          <option value="manual">Custom text color</option>
-        </select>
-      </label>
-      <label>
-        Text color
-        <input
-          type="color"
-          value={options.text_color || "#000000"}
-          onChange={(e) =>
-            setOptions({ text_color: e.target.value, color_mode: "manual" })
-          }
-        />
-      </label>
+      <ColorControls options={options} set={setOptions} source />
       <label>
         Text background cleanup
         <select
@@ -160,7 +138,8 @@ export default function FontControls({
         {busy ? "Matching…" : "Match source font"}
       </button>
       <p className="field-hint">
-        Automatic generation matches source weight and color without adding a
+        Automatic font matching follows source weight. Colors default to black;
+        choose Match original lettering to copy source color. Rendering adds no
         text background. Font matching compares source lettering with installed
         fonts. If source text is empty, configured local OCR is tried. Scans
         provide an estimate; choose a family manually when needed.

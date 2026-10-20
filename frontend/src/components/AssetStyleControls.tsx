@@ -1,6 +1,8 @@
 import type { Region, RuleOptions } from "../types";
 import SealControls from "./SealControls";
 import InkOpacityControls from "./InkOpacityControls";
+import StampControls from "./StampControls";
+import ColorControls from "./ColorControls";
 
 export default function AssetStyleControls({
   field,
@@ -15,7 +17,8 @@ export default function AssetStyleControls({
     onChange({
       rule_options: {
         ...options,
-        ...(field.kind === "signature" && field.rule?.startsWith("literal:")
+        ...(["signature", "stamp", "rubber_stamp"].includes(field.kind) &&
+        field.rule?.startsWith("literal:")
           ? { literal_text: field.rule.slice(8) }
           : {}),
         ...patch,
@@ -46,9 +49,68 @@ export default function AssetStyleControls({
         selected pixels before replacement, including old seals. Textured
         backgrounds are reconstructed approximately.
       </p>
-      {!["signature", "seal", "qr", "barcode", "portrait"].includes(
-        field.kind,
-      ) && (
+      {[
+        "signature",
+        "seal",
+        "portrait",
+        "stamp",
+        "rubber_stamp",
+        "drawing",
+      ].includes(field.kind) && (
+        <>
+          <label>
+            Element background
+            <select
+              value={options.background_mode || "auto"}
+              onChange={(e) =>
+                set({
+                  background_mode: e.target
+                    .value as RuleOptions["background_mode"],
+                })
+              }
+            >
+              <option value="auto">Use canvas / original background</option>
+              <option value="solid">Solid color behind element</option>
+            </select>
+          </label>
+          {options.background_mode === "solid" && (
+            <label>
+              Element background color
+              <input
+                type="color"
+                value={options.background_color || "#ffffff"}
+                onChange={(e) => set({ background_color: e.target.value })}
+              />
+            </label>
+          )}
+        </>
+      )}
+      {field.kind === "drawing" && (
+        <>
+          <label>
+            Pen width
+            <input
+              type="range"
+              min={0.5}
+              max={80}
+              step={0.5}
+              value={options.drawing_width || 3}
+              onChange={(e) => set({ drawing_width: Number(e.target.value) })}
+            />
+          </label>
+          <ColorControls options={options} set={set} label="Pen color" />
+        </>
+      )}
+      {![
+        "signature",
+        "seal",
+        "stamp",
+        "rubber_stamp",
+        "qr",
+        "barcode",
+        "portrait",
+        "drawing",
+      ].includes(field.kind) && (
         <label>
           Writing style
           <select
@@ -91,6 +153,29 @@ export default function AssetStyleControls({
       )}
       {field.kind === "signature" && (
         <>
+          <label>
+            Signature content
+            <select
+              value={options.signature_content || "current"}
+              onChange={(e) =>
+                set({
+                  signature_content: e.target
+                    .value as RuleOptions["signature_content"],
+                })
+              }
+            >
+              <option value="current">
+                Current · style chooses names or abbreviations
+              </option>
+              <option value="name">Name only · all name words</option>
+              <option value="alphabet">
+                Alphabet only · 1–3 initials / letters
+              </option>
+              <option value="mixed">
+                Mixed · names, current and alphabet designs
+              </option>
+            </select>
+          </label>
           <label>
             Signature style
             <select
@@ -167,11 +252,40 @@ export default function AssetStyleControls({
             adding independent scribbles. A literal rule supplies fictional
             signing text; the selected style may abbreviate it.
           </p>
+          <label>
+            Signature boldness
+            <input
+              type="range"
+              min={1}
+              max={5}
+              step={0.1}
+              value={options.signature_thickness ?? 1}
+              onChange={(e) =>
+                set({ signature_thickness: Number(e.target.value) })
+              }
+            />
+          </label>
+          <p className="field-hint">
+            {(options.signature_thickness ?? 1).toFixed(1)}× · 1× is the current
+            default, including random pen weights. Increase for thicker strokes;
+            lettering and layout stay the same for the same seed.
+          </p>
+          <ColorControls options={options} set={set} label="Signature color" />
+          <button
+            className="btn small"
+            type="button"
+            onClick={() => set({ signature_thickness: 1 })}
+          >
+            Use default boldness
+          </button>
           <InkOpacityControls options={options} set={set} />
         </>
       )}
       {field.kind === "seal" && (
         <SealControls field={field} options={options} set={set} />
+      )}
+      {["stamp", "rubber_stamp"].includes(field.kind) && (
+        <StampControls field={field} options={options} set={set} />
       )}
     </details>
   );

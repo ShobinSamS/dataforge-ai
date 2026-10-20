@@ -10,7 +10,10 @@ export type FieldType =
   | "seal"
   | "qr"
   | "barcode"
-  | "portrait";
+  | "portrait"
+  | "stamp"
+  | "rubber_stamp"
+  | "drawing";
 export const fieldTypes: FieldType[] = [
   "text",
   "name",
@@ -24,8 +27,13 @@ export const fieldTypes: FieldType[] = [
   "qr",
   "barcode",
   "portrait",
+  "stamp",
+  "rubber_stamp",
+  "drawing",
 ];
 export interface RuleOptions {
+  address_country?: string;
+  address_format?: string;
   date_format:
     "yyyy-mm-dd" | "dd/mm/yyyy" | "mm/dd/yyyy" | "dd-mm-yyyy" | "yyyy/mm/dd";
   date_start: string;
@@ -34,12 +42,18 @@ export interface RuleOptions {
   literal_text: string | null;
   portrait_source: "illustration" | "asset_pool";
   portrait_asset_ids: string[];
+  portrait_background?: "preserve" | "transparent" | "solid" | "random";
+  portrait_background_color?: string;
+  portrait_background_palette?: string[];
+  drawing_points?: [number, number][];
+  drawing_width?: number;
   character_length?: number | null;
   character_set?: "alnum" | "digits" | "upper" | "lower";
   font_id?: string;
   font_size?: number | null;
   text_color?: string;
-  color_mode?: "auto" | "manual";
+  color_mode?: "black" | "auto" | "manual" | "random" | "mixed";
+  color_palette?: string[];
   font_weight?: "auto" | "normal" | "bold";
   background_mode?: "auto" | "solid";
   background_color?: string;
@@ -71,6 +85,8 @@ export interface RuleOptions {
     | "split"
     | "enclosed"
     | "interwoven";
+  signature_thickness?: number;
+  signature_content?: "current" | "name" | "alphabet" | "mixed";
   ink_opacity_mode?: "random" | "fixed";
   ink_opacity?: number;
   ink_opacity_min?: number;
@@ -127,6 +143,39 @@ export interface RuleOptions {
   seal_field_writing?: "printed" | "cursive";
   seal_embedded_signature?: boolean;
   seal_signer_name?: string;
+  stamp_style?:
+    | "random"
+    | "portrait"
+    | "architecture"
+    | "botanical"
+    | "commemorative"
+    | "revenue";
+  stamp_ink_mode?: "default" | "custom";
+  stamp_color?: string;
+  stamp_palette?:
+    | "black"
+    | "custom"
+    | "random"
+    | "sepia"
+    | "red"
+    | "blue"
+    | "green"
+    | "purple"
+    | "monochrome"
+    | "multicolor";
+  stamp_issuer?: string;
+  stamp_caption?: string;
+  stamp_denomination?: string;
+  stamp_perforated?: boolean;
+  stamp_age?: number;
+  stamp_cancellation?: "random" | "none" | "postmark" | "waves" | "pen";
+  rubber_stamp_style?:
+    "random" | "boxed" | "text" | "round" | "dated" | "postmark" | "waves";
+  rubber_stamp_mode?: "random" | "static" | "custom";
+  rubber_stamp_text?: string;
+  rubber_stamp_format?: string;
+  rubber_stamp_color?:
+    "random" | "red" | "blue" | "green" | "purple" | "black" | "brown";
 }
 export interface Region {
   id: string;
@@ -161,6 +210,12 @@ export interface Template {
   revision: number;
   privacy_confirmed: boolean;
   created_at: string;
+  canvas?: {
+    paper: string;
+    dpi: number;
+    background: "white" | "transparent" | "color";
+    background_color: string;
+  } | null;
 }
 export interface Config {
   template_id: string;
@@ -173,7 +228,10 @@ export interface Config {
   noise_sigma: number;
   signatures: boolean;
   signature_style_override?: "mixed" | null;
+  signature_content_override?: "current" | "name" | "alphabet" | "mixed" | null;
   seals: boolean;
+  stamps?: boolean;
+  rubber_stamps?: boolean;
   qr_codes: boolean;
   barcodes: boolean;
   max_retries: number;
@@ -195,6 +253,13 @@ export interface Job {
   created_at: string;
 }
 export interface Annotation {
+  stamp?: {
+    style: string;
+    text: string;
+    cancellation: string;
+    palette: string;
+  };
+  rubber_stamp?: { style: string; text: string; opacity?: number };
   seal?: {
     shape: string;
     content_mode: string;

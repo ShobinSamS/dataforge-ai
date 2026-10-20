@@ -1,8 +1,9 @@
 # Compatibility and license review
 
-Reviewed 2026-10-18. Source links document upstream capabilities and licenses;
-they do not establish performance on the target laptop. No model weights are
-bundled, downloaded on startup, or sent uploaded content. Installation may need
+Reviewed 2026-10-19. Source links document upstream capabilities and licenses;
+they do not establish performance on the target laptop. Model weights are never
+downloaded on startup, and inference stays local. The small MIT-licensed YuNet
+face detector is bundled with provenance in `backend/assets/yunet/`. Installation may need
 Internet access; runtime can remain offline after packages/models are provisioned.
 
 | Component | Decision | Evidence / license | Verification here |
@@ -16,7 +17,8 @@ Internet access; runtime can remain offline after packages/models are provisione
 | TrOCR-Small printed / handwritten | Optional local CPU recognition of English line/cell crops, not page layout or signatures | [Microsoft handwritten model card](https://huggingface.co/microsoft/trocr-small-handwritten), [printed model](https://huggingface.co/microsoft/trocr-small-printed) | Both installed and exercised on synthetic font lines; handwritten punctuation error observed. No Indian handwriting benchmark; see document-analysis.md |
 | Presidio | Planned in addition to regex; local NLP model must also be provisioned | [Official analyzer docs](https://microsoft.github.io/presidio/analyzer/) | Not integrated; regex is not equivalent semantic coverage |
 | SD 1.5 / LCM / OpenVINO | Disabled; isolated CPU process benchmark before integration | [OpenVINO model card](https://huggingface.co/OpenVINO/stable-diffusion-v1-5-fp16-ov): CreativeML Open RAIL-M, OpenVINO >=2025.0 and Optimum Intel >=1.22. [LCM-LoRA paper](https://arxiv.org/abs/2311.05556) | No hardware latency, RAM or quality claim; no diffusion backend shipped |
-| LangGraph / MCP / FAISS | Documented phase-3 design | Recheck exact pinned dependencies and their transitive licenses during that phase | Not integrated |
+| MCP Python SDK | Optional v1 compatibility line `mcp>=1.30,<2`; separate requirements-mcp.txt | [Official SDK](https://github.com/modelcontextprotocol/python-sdk), MIT | Stdio + Streamable HTTP tool discovery, native images, uploads, reviews, jobs and exports tested; see mcp.md |
+| LangGraph / FAISS | Documented phase-3 design | Recheck exact pinned dependencies and their transitive licenses during that phase | Not integrated |
 
 The base workflow does not need PyTorch, PaddlePaddle, an LLM server, Redis or
 diffusion. Installing all AI dependencies into one environment is deliberately

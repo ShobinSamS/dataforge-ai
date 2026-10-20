@@ -132,8 +132,10 @@ def source_records(image, regions, mode):
         if not vision_ocr.capabilities()["models"]["printed"]:
             raise ValueError("No OCR text found. Install local OCR models or select English printed/handwritten TrOCR after setup.")
         mode="printed"
-    eligible=[r for r in regions if r.kind not in {"portrait","signature","seal","qr","barcode"}]
-    boxes=[r.box for r in eligible] if regions else vision_ocr.detect_lines(image)
+    eligible=[r for r in regions if r.kind not in {"portrait","signature","seal","stamp","rubber_stamp","qr","barcode"}]
+    # Uploads may contain only QR/barcode/photo proposals. Those do not supply
+    # text crops and must not prevent full-page line detection.
+    boxes=[r.box for r in eligible] if eligible else vision_ocr.detect_lines(image)
     if not boxes: raise ValueError("No text crops selected. Add a single-line text region or clear regions to detect page lines.")
     warnings=["TrOCR recognizes English single-line crops. OpenCV proposals may miss or merge lines; inspect the complete page. Scores are model likelihoods, not calibrated accuracy."]
     if len(boxes)>vision_ocr.MAX_CROPS:

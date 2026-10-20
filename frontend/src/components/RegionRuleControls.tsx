@@ -4,6 +4,8 @@ import { api, post } from "../api";
 import type { Region, RuleOptions } from "../types";
 import FontControls from "./FontControls";
 import AssetStyleControls from "./AssetStyleControls";
+import ColorControls from "./ColorControls";
+import AddressControls from "./AddressControls";
 
 export const defaultRuleOptions: RuleOptions = {
   date_format: "yyyy-mm-dd",
@@ -18,7 +20,7 @@ export const defaultRuleOptions: RuleOptions = {
   font_id: "auto",
   font_size: null,
   text_color: "#000000",
-  color_mode: "auto",
+  color_mode: "black",
   font_weight: "auto",
   background_mode: "auto",
   background_color: "#ffffff",
@@ -107,15 +109,18 @@ export default function RegionRuleControls({
         `${result.explanation} Review the action, field type and options below, then verify this region.`,
       );
     });
-  const addPortrait = (record: Portrait) => {
-    if (options.portrait_asset_ids.length >= 20)
+  const addPortraits = (records: Portrait[]) => {
+    if (options.portrait_asset_ids.length + records.length > 20)
       throw new Error("A pool supports up to 20 portraits.");
     setOptions({
       portrait_source: "asset_pool",
-      portrait_asset_ids: [...options.portrait_asset_ids, record.id],
+      portrait_asset_ids: [
+        ...options.portrait_asset_ids,
+        ...records.map((record) => record.id),
+      ],
     });
     setMessage(
-      "Portrait added. Different samples choose from this pool using the dataset seed.",
+      `${records.length} image${records.length === 1 ? "" : "s"} added. Different samples choose from this pool using the dataset seed.`,
     );
   };
 
@@ -282,6 +287,9 @@ export default function RegionRuleControls({
           </label>
         </>
       )}
+      {action === "replace" && field.kind === "address" && (
+        <AddressControls options={options} set={setOptions} />
+      )}
       {action === "replace" &&
         ["identifier", "text", "qr", "barcode"].includes(field.kind) && (
           <>
@@ -357,9 +365,54 @@ export default function RegionRuleControls({
           </>
         )}
       {action === "replace" &&
-        !["portrait", "signature", "seal", "qr", "barcode"].includes(
-          field.kind,
-        ) && (
+        [
+          "text",
+          "name",
+          "address",
+          "email",
+          "phone",
+          "date",
+          "identifier",
+          "signature",
+          "qr",
+          "barcode",
+        ].includes(field.kind) && (
+          <label>
+            Exact content (empty = generate)
+            <textarea
+              rows={2}
+              maxLength={
+                field.kind === "signature"
+                  ? 100
+                  : field.kind === "qr"
+                    ? 500
+                    : field.kind === "barcode"
+                      ? 128
+                      : 1000
+              }
+              value={options.literal_text || ""}
+              placeholder="Type the text you want to place"
+              onChange={(e) =>
+                setOptions({
+                  literal_text: e.target.value || null,
+                  identifier_pattern: "",
+                  character_length: null,
+                })
+              }
+            />
+          </label>
+        )}
+      {action === "replace" &&
+        ![
+          "portrait",
+          "signature",
+          "seal",
+          "stamp",
+          "rubber_stamp",
+          "qr",
+          "barcode",
+          "drawing",
+        ].includes(field.kind) && (
           <FontControls
             field={field}
             options={options}
@@ -370,10 +423,86 @@ export default function RegionRuleControls({
       {action === "replace" && options.literal_text !== null && (
         <p className="field-hint">Exact text: {options.literal_text}</p>
       )}
-      {action === "replace" && field.kind === "portrait" && (
+      {action === "replace" && ["portrait", "stamp"].includes(field.kind) && (
         <>
+          {field.kind === "portrait" && (
+            <>
+              <label>
+                Photo background
+                <select
+                  value={options.portrait_background || "preserve"}
+                  onChange={(e) =>
+                    setOptions({
+                      portrait_background: e.target
+                        .value as RuleOptions["portrait_background"],
+                    })
+                  }
+                >
+                  <option value="preserve">
+                    Keep original background / PNG transparency
+                  </option>
+                  <option value="transparent">
+                    Remove background · transparent
+                  </option>
+                  <option value="solid">Replace with a color</option>
+                  <option value="random">
+                    Random background color per sample
+                  </option>
+                </select>
+              </label>
+              {["solid", "random"].includes(
+                options.portrait_background || "",
+              ) && (
+                <ColorControls
+                  label="Photo background color"
+                  options={{
+                    ...options,
+                    color_mode:
+                      options.portrait_background === "random"
+                        ? "random"
+                        : "manual",
+                    text_color: options.portrait_background_color || "#ffffff",
+                    color_palette: options.portrait_background_palette || [
+                      "#ffffff",
+                      "#d9e8ff",
+                      "#ddd9ef",
+                      "#ddebd9",
+                    ],
+                  }}
+                  set={(patch) =>
+                    setOptions({
+                      ...(patch.color_mode
+                        ? {
+                            portrait_background:
+                              patch.color_mode === "random"
+                                ? "random"
+                                : "solid",
+                          }
+                        : {}),
+                      ...(patch.text_color
+                        ? { portrait_background_color: patch.text_color }
+                        : {}),
+                      ...(patch.color_palette
+                        ? { portrait_background_palette: patch.color_palette }
+                        : {}),
+                    })
+                  }
+                />
+              )}
+              {options.portrait_background &&
+                options.portrait_background !== "preserve" && (
+                  <p className="field-hint">
+                    Background removal runs locally and is approximate,
+                    especially around hair or busy scenes. Preview the cutout.
+                    An existing transparent PNG keeps its supplied edges.
+                  </p>
+                )}
+            </>
+          )}
           <label>
-            Portrait source
+            {field.kind === "stamp"
+              ? "Stamp portrait artwork source"
+              : "Portrait source"}
             <select
               value={options.portrait_source}
               onChange={(e) =>
@@ -389,12 +518,20 @@ export default function RegionRuleControls({
               <option value="asset_pool">Approved photo / image pool</option>
             </select>
           </label>
-          <p className="field-hint">
-            Offline portraits are drawings. For photographic output, add
-            approved photos or externally generated fictional faces. Images are
-            cropped to fill the selected rectangle; its annotation covers the
-            whole photo.
-          </p>
+          {field.kind === "stamp" ? (
+            <p className="field-hint">
+              Approved images are converted to printed engraving inside portrait
+              or revenue stamps. Choose portrait or revenue artwork style to use
+              the pool.
+            </p>
+          ) : (
+            <p className="field-hint">
+              Offline portraits are drawings. For photographic output, add
+              approved photos or externally generated fictional faces. Images
+              are cropped to fill the selected rectangle; its annotation covers
+              the whole photo.
+            </p>
+          )}
           <div className="portrait-pool">
             {options.portrait_asset_ids.map((id, index) => (
               <div key={id}>
@@ -437,33 +574,47 @@ export default function RegionRuleControls({
             />
           </label>
           <label>
-            Add portrait to pool (up to 20)
+            Add images or ZIP to pool (up to 20)
             <input
               type="file"
-              accept="image/png,image/jpeg,image/webp"
+              accept="image/png,image/jpeg,image/webp,.zip,application/zip"
+              multiple
               disabled={!rights || options.portrait_asset_ids.length >= 20}
               onChange={(e) => {
-                const file = e.target.files?.[0];
+                const files = Array.from(e.target.files || []);
                 e.target.value = "";
-                if (file)
+                if (files.length)
                   run(async () => {
                     const form = new FormData();
-                    form.append("file", file);
+                    for (const file of files) form.append("files", file);
+                    form.append(
+                      "max_count",
+                      String(20 - options.portrait_asset_ids.length),
+                    );
                     form.append("rights_confirmed", "true");
                     form.append(
                       "license_note",
                       license || "User confirmed permission for dataset use",
                     );
-                    addPortrait(
-                      await api<Portrait>("/portraits", {
+                    const result = await api<{ portraits: Portrait[] }>(
+                      "/portraits/batch",
+                      {
                         method: "POST",
                         body: form,
-                      }),
+                      },
                     );
+                    addPortraits(result.portraits);
                   });
               }}
             />
           </label>
+          <p className="field-hint">
+            {options.portrait_asset_ids.length}/20 selected. Select multiple
+            PNG, JPEG or WebP images, or a ZIP containing images. Each image: up
+            to 8 MB / 8 megapixels. Combined upload and uncompressed images: up
+            to 40 MB. Imports add to the existing pool; invalid or oversized
+            batches leave it unchanged.
+          </p>
           <details>
             <summary>Optional online portrait import</summary>
             <p className="field-hint">
@@ -496,7 +647,7 @@ export default function RegionRuleControls({
               }
               onClick={() =>
                 run(async () =>
-                  addPortrait(
+                  addPortraits([
                     await post<Portrait>("/portraits/fetch", {
                       confirm_online: true,
                       rights_confirmed: true,
@@ -504,7 +655,7 @@ export default function RegionRuleControls({
                         license ||
                         "User confirmed provider image permission for dataset use",
                     }),
-                  ),
+                  ]),
                 )
               }
             >

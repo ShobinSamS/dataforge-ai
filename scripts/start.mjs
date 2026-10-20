@@ -20,11 +20,11 @@ export function portOpen(port) {
   });
 }
 
-export async function identify(port) {
+export async function identify(port, kind = port === 8000 ? "backend" : "frontend") {
   if (!await portOpen(port)) return false;
   try {
-    const response = await fetch(`http://127.0.0.1:${port}/${port === 8000 ? "openapi.json" : ""}`, { signal: AbortSignal.timeout(3000) });
-    const known = port === 8000 ? (await response.json()).info?.title === "DataForge AI" : /<title>DataForge AI/.test(await response.text());
+    const response = await fetch(`http://127.0.0.1:${port}/${kind === "backend" ? "openapi.json" : ""}`, { signal: AbortSignal.timeout(10000) });
+    const known = kind === "backend" ? (await response.json()).info?.title === "DataForge AI" : /<title>DataForge AI/.test(await response.text());
     if (response.ok && known) return true;
   } catch { /* An occupied port is never assumed to belong to this app. */ }
   throw new Error(`Port ${port} is in use by another service. Stop it or use the existing app; no process was terminated.`);
@@ -48,9 +48,10 @@ function setup() {
   console.log("Setup complete. Run npm start.");
 }
 
-export async function launch({ browser = true } = {}) {
+export async function launch({ browser = true, apiPort = 8000 } = {}) {
+  if (!Number.isInteger(apiPort) || apiPort < 1 || apiPort > 65535 || apiPort === 5173) throw new Error("API port must be 1–65535 and different from the frontend port 5173.");
   if (!existsSync(python) || !existsSync(vite)) throw new Error("Dependencies are missing. Run npm run setup once, then npm start.");
-  const backend = await identify(8000), frontend = await identify(5173);
+  const backend = await identify(apiPort, "backend"), frontend = await identify(5173);
   const children = [];
   let stopping = false;
   const stop = () => {
@@ -63,23 +64,24 @@ export async function launch({ browser = true } = {}) {
     }
   };
   const start = (command, args, cwd) => {
-    const child = spawn(command, args, { cwd, stdio: "inherit", windowsHide: true });
+    const child = spawn(command, args, { cwd, stdio: "inherit", windowsHide: true, env: { ...process.env, DATAFORGE_API_PORT: String(apiPort) } });
     children.push(child);
     child.on("error", (error) => { console.error(error.message); process.exitCode = 1; stop(); });
     child.on("exit", (code) => { if (!stopping) { process.exitCode = code || 1; stop(); } });
   };
   process.once("SIGINT", stop); process.once("SIGTERM", stop); process.once("exit", stop);
   try {
-    if (!backend) start(python, ["-X", "utf8", "-m", "uvicorn", "backend.app.main:app", "--host", "127.0.0.1", "--port", "8000"], root);
+    if (!backend) start(python, ["-X", "utf8", "-m", "uvicorn", "backend.app.main:app", "--host", "127.0.0.1", "--port", String(apiPort)], root);
     if (!frontend) start(process.execPath, [vite, "--host", "127.0.0.1", "--port", "5173", "--strictPort"], join(root, "frontend"));
     const deadline = Date.now() + 45000;
     while (!stopping) {
-      if (await portOpen(8000) && await portOpen(5173)) break;
+      if (await portOpen(apiPort) && await portOpen(5173)) break;
       if (Date.now() > deadline) throw new Error("Startup timed out. Check server output above.");
       await new Promise((done) => setTimeout(done, 250));
     }
     if (stopping) return;
-    await identify(8000); await identify(5173);
+    await identify(apiPort, "backend"); await identify(5173);
+    console.log(`DataForge API: http://127.0.0.1:${apiPort}`);
     console.log(`DataForge AI: http://127.0.0.1:5173/\n${children.length ? "Keep this terminal open. Ctrl+C stops the servers launched here." : "Already running; reusing the existing servers. Stop them from their original terminal."}`);
     if (browser) {
       const cmd = windows ? "rundll32.exe" : process.platform === "darwin" ? "open" : "xdg-open";
@@ -93,6 +95,9 @@ export async function launch({ browser = true } = {}) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  try { if (process.argv.includes("--setup")) setup(); else await launch({ browser: !process.argv.includes("--no-browser") }); }
+  try { if (process.argv.includes("--setup")) setup(); else {
+    const index=process.argv.indexOf("--api-port");
+    await launch({ browser: !process.argv.includes("--no-browser"), apiPort: index < 0 ? 8000 : Number(process.argv[index+1]) });
+  } }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }

@@ -17,7 +17,7 @@ def classify(text: str) -> FieldType:
     return FieldType.text
 
 
-def check_review(regions: list[Region], width: int, height: int, privacy_confirmed: bool) -> None:
+def check_review(regions: list[Region], width: int, height: int, privacy_confirmed: bool, *, allow_overlap: bool=False) -> None:
     if not regions:
         raise ValueError("Select at least one replacement region")
     if len({r.id for r in regions}) != len(regions):
@@ -33,7 +33,7 @@ def check_review(regions: list[Region], width: int, height: int, privacy_confirm
         x,y,w,h = a.box
         for b in selected[i+1:]:
             xx,yy,ww,hh = b.box
-            if min(x+w,xx+ww) > max(x,xx) and min(y+h,yy+hh) > max(y,yy):
+            if not allow_overlap and min(x+w,xx+ww) > max(x,xx) and min(y+h,yy+hh) > max(y,yy):
                 raise ValueError(f"Replacement regions overlap: {a.label} / {b.label}; combine or resize them")
     if not privacy_confirmed:
         raise ValueError("Confirm that you reviewed the entire page for sensitive content")

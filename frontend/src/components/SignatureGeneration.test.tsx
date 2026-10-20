@@ -16,7 +16,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 it("explains fixed saved styles and previews the batch override without changing the template", async () => {
-  const config = { signatures: true, seed: 42 } as Config;
+  const config = {
+    signatures: true,
+    seed: 42,
+    signature_content_override: "mixed",
+  } as Config;
   const template = {
     regions: [
       {
@@ -28,6 +32,7 @@ it("explains fixed saved styles and previews the batch override without changing
           signature_style: "flourish",
           ink_opacity_mode: "fixed",
           ink_opacity: 0.3,
+          signature_thickness: 2.2,
         },
       },
     ],
@@ -54,9 +59,19 @@ it("explains fixed saved styles and previews the batch override without changing
   await waitFor(() =>
     expect(screen.getByAltText("Fictional gestural signature 1")).toBeTruthy(),
   );
-  expect(api).toHaveBeenCalledWith(
-    "/signatures/previews?style=mixed&seed=42&ink_opacity_mode=fixed&ink_opacity=0.3&ink_opacity_min=0.45&ink_opacity_max=1&ink_finish=natural&ink_irregularity=0.55",
-  );
+  const query = new URL(vi.mocked(api).mock.calls[0][0], "http://local")
+    .searchParams;
+  expect(query.get("signature_content")).toBe("mixed");
+  expect(query.get("ink_opacity")).toBe("0.3");
+  expect(query.get("signature_thickness")).toBe("2.2");
+  expect(query.get("text_color")).toBe("#000000");
+  expect(query.getAll("color_palette")).toHaveLength(5);
+  fireEvent.change(screen.getByLabelText("Signature content for this batch"), {
+    target: { value: "alphabet" },
+  });
+  expect(onChange).toHaveBeenLastCalledWith({
+    signature_content_override: "alphabet",
+  });
   fireEvent.change(screen.getByLabelText("Signature variety for this batch"), {
     target: { value: "template" },
   });

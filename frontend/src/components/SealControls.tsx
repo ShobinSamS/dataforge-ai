@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { post } from "../api";
 import type { Region, RuleOptions } from "../types";
 import InkOpacityControls from "./InkOpacityControls";
+import ColorControls from "./ColorControls";
 
 export default function SealControls({
   field,
@@ -39,49 +40,39 @@ export default function SealControls({
         : patch,
     );
   };
+  const legacyColors = {
+    red: "#a12030",
+    blue: "#1b3d91",
+    green: "#196e44",
+    purple: "#633085",
+    brown: "#8b4c29",
+    black: "#000000",
+  };
+  const legacy = options.seal_color;
+  const colorOptions =
+    (options.color_mode === "auto" ||
+      options.color_mode === "black" ||
+      !options.color_mode) &&
+    legacy &&
+    legacy !== "black"
+      ? {
+          ...options,
+          color_mode: (legacy === "random"
+            ? "random"
+            : legacy === "mixed"
+              ? "mixed"
+              : "manual") as RuleOptions["color_mode"],
+          text_color:
+            legacyColors[legacy as keyof typeof legacyColors] ||
+            options.text_color,
+          color_palette:
+            legacy === "random" || legacy === "mixed"
+              ? Object.values(legacyColors)
+              : options.color_palette,
+        }
+      : options;
   return (
     <>
-      <label>
-        Rubber stamp preset
-        <select
-          value=""
-          onChange={(e) => {
-            if (!e.target.value) return;
-            change({
-              seal_text_mode: "static",
-              literal_text: null,
-              seal_text: e.target.value,
-              seal_subtext: "",
-              seal_bottom_text: "",
-              seal_inner_top_text: "",
-              seal_inner_bottom_text: "",
-              seal_style: "rectangle",
-              seal_border: "double",
-              seal_symbol: "none",
-              seal_center_motif: "none",
-              seal_embedded_signature: false,
-            });
-          }}
-        >
-          <option value="">Choose a preset or configure below</option>
-          {[
-            "RECEIVED",
-            "PAID",
-            "APPROVED",
-            "REJECTED",
-            "COPY",
-            "CONFIDENTIAL",
-          ].map((v) => (
-            <option key={v}>{v}</option>
-          ))}
-        </select>
-      </label>
-      <p className="field-hint">
-        Seals and rubber stamps use the same generator. Presets set static
-        wording; choose random or custom wording below for variations.
-        Transparent ink, wear and random opacity also apply to stamps. Draw a
-        new seal / stamp region to add one where the template has none.
-      </p>
       <label>
         Seal wording
         <select
@@ -137,28 +128,12 @@ export default function SealControls({
           ))}
         </select>
       </label>
-      <label>
-        Seal ink
-        <select
-          value={options.seal_color || "random"}
-          onChange={(e) =>
-            change({ seal_color: e.target.value as RuleOptions["seal_color"] })
-          }
-        >
-          {[
-            "random",
-            "red",
-            "blue",
-            "green",
-            "purple",
-            "black",
-            "brown",
-            "mixed",
-          ].map((v) => (
-            <option key={v}>{v}</option>
-          ))}
-        </select>
-      </label>
+      <ColorControls
+        options={colorOptions}
+        set={change}
+        label="Seal ink"
+        seal
+      />
       <label>
         Seal border
         <select

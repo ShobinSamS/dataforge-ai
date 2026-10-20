@@ -1380,6 +1380,25 @@ input:not([type="checkbox"]):not([type="range"]):not([type="file"]) {
   border-radius: 8px;
   overflow: hidden;
 }
+.canvas-wrap.transparent-canvas {
+  background-color: #fff;
+  background-image: conic-gradient(#e3e7ea 25%, transparent 0 50%, #e3e7ea 0 75%, transparent 0);
+  background-size: 20px 20px;
+}
+.blank-canvas-dialog { max-width: 620px; max-height: 90vh; overflow-y: auto; }
+.canvas-form-grid { border: 0; padding: 16px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.canvas-form-grid label, .canvas-actions label, .canvas-draw-options label { display: grid; gap: 6px; font-size: 12px; }
+.canvas-form-grid .span-two { grid-column: 1 / -1; }
+.canvas-tools { padding: 18px; margin-bottom: 16px; }
+.canvas-actions, .canvas-draw-options { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.canvas-actions input { max-width: 120px; }
+.canvas-draw-options { background: white; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.canvas-draw-options input[type="number"] { width: 75px; }
+.canvas-tools .field-hint { margin-top: 12px; }
+.address-controls { display: grid; gap: 12px; }
+.address-component-row { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.address-component-row .check-label { flex: 1; margin: 0; }
+.address-preview { white-space: pre-wrap; overflow-wrap: anywhere; padding: 12px; border: 1px solid var(--line); border-radius: 6px; background: #f5faf8; }
 .canvas-toolbar {
   display: flex;
   align-items: center;
@@ -1951,6 +1970,38 @@ td small {
 }
 .review-box.compact {
   padding: 15px;
+}
+.form-panel .check-label input[type="checkbox"] {
+  width: 13px;
+  flex: 0 0 13px;
+}
+.review-box > div {
+  min-width: 0;
+  flex: 1;
+}
+.color-swatches {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(18px, 1fr));
+  gap: 5px;
+  margin: 10px 0;
+  max-width: 350px;
+}
+.color-swatches button {
+  min-width: 18px;
+  min-height: 23px;
+  padding: 0;
+  border: 1px solid #a7b0b8;
+  border-radius: 3px;
+}
+.color-swatches button[aria-pressed="true"] {
+  outline: 2px solid #098e77;
+  outline-offset: 1px;
+}
+.color-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
 }
 .review-box.compact .check-label {
   margin: 0;
@@ -2847,6 +2898,30 @@ td small {
   max-width: 100%;
   max-height: 300px;
   object-fit: contain;
+}
+.mcp-tools > section {
+  min-width: 0;
+}
+.mcp-tools pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #f4f7f8;
+  border: 1px solid #e2e8ec;
+  border-radius: 6px;
+  padding: 12px;
+  font-size: 12px;
+}
+.mcp-tools p {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.mcp-tools .setting-row {
+  align-items: start;
+  gap: 18px;
+}
+.mcp-tools .setting-row strong {
+  min-width: 100px;
+  text-align: left;
 }
 .seal-preview pre {
   white-space: pre-wrap;

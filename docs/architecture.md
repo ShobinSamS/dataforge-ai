@@ -5,7 +5,12 @@ additive workflow; see [text architecture, audit and endpoint contracts](text-da
 Text jobs and existing document jobs share one CPU worker and a bounded FIFO
 queue, with separate SQL tables, record storage and export services. Later-phase
 text/Qwen references below describe the original roadmap; this extension delivers
-those text features without implementing LangGraph/RAG/MCP or diffusion.
+those text features without implementing LangGraph/RAG or diffusion.
+
+**MCP extension:** `backend/mcp_server.py` is an optional SDK adapter with 37
+typed tools and three resources over stdio/Streamable HTTP. It calls the existing
+loopback API and does not start a second worker. `asset_api.py` adds standalone
+rendering using the existing generators. See [MCP setup/contracts](mcp.md).
 
 **Document rule extension:** `document_rules.py` compiles per-region prompts
 to validated replace/erase/keep plans using deterministic aliases or local Qwen
@@ -167,7 +172,8 @@ OCR-grounded local Qwen PII proposals and ruled-grid table extraction; see
 Remaining phase 2: general layout recognition, Presidio + local spaCy, structured restoration,
 annotation editing/versioning, class balancing and configurable augmentations.
 Phase 3: shared Qwen via loopback llama.cpp, LangGraph plan/review nodes, FAISS
-local embeddings and MCP interoperability. Phase 4: opt-in SD 1.5 LCM isolated
+local embeddings. MCP interoperability is implemented independently of those
+agent components. Phase 4: opt-in SD 1.5 LCM isolated
 process benchmarks at 256/512, then assets only if memory/latency acceptable.
 Phase 5: text/NER with entity-first character offsets, tabular schema constraints,
 relations and evaluated distributions; compositing and dataset lineage.
@@ -178,10 +184,6 @@ interpretation → retrieval → planning → Pydantic validation → human revi
 deterministic generation → annotation validation → quality review → export
 planning. Every semantic node uses one shared local model, never one per agent
 or one inference per sample. Failed validation routes back to planning, bounded
-by a retry limit. MCP tools should call the same services as FastAPI with typed
-inputs: analyze_template(id), run_ocr(id), detect_pii(text),
-map_document_fields(id, Review), generate_synthetic_values(seed, regions),
-generate_signature(seed, size), generate_seal(seed, size), generate_qr_code(value),
-generate_barcode(value), generate_document(GenerationConfig),
-apply_augmentations(seed, config), create_annotations(job_id),
-validate_dataset(job_id), export_dataset(job_id, ExportRequest).
+by a retry limit. The implemented MCP adapter reuses FastAPI contracts and
+validation rather than implementing agent planning. Its exact tool names,
+configuration, native image results and export transfers are in [mcp.md](mcp.md).

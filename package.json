@@ -4,6 +4,7 @@
   "scripts": {
     "start": "node scripts/start.mjs",
     "setup": "node scripts/start.mjs --setup",
-    "test:launcher": "node --test scripts/start.test.mjs"
+    "test:launcher": "node --test scripts/start.test.mjs",
+    "mcp": "node scripts/start_mcp.mjs"
   }
 }

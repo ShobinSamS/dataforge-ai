@@ -156,3 +156,41 @@ def test_random_pen_weight_is_seeded_thicker_and_keeps_lettering(family):
         layer,_,info=signatures.render_signature((340,100),"Mira Dev",random.Random(42),fixed)
         original,_,_=signatures._render_signature((340,100),"Mira Dev",random.Random(42),fixed)
         assert info["stroke_weight"]==weight and layer.tobytes()==original.tobytes()
+
+
+@pytest.mark.parametrize("family",["minimal","tall_initial","name"])
+def test_user_thickness_keeps_default_pixels_and_increases_ink(family):
+    options=RuleOptions(signature_style=family,ink_opacity_mode="fixed",ink_opacity=1,ink_finish="clean")
+    for seed in (1,42):
+        baseline,_,before=signatures.render_signature((340,100),"Mira Dev",random.Random(seed),options)
+        explicit,_,_=signatures.render_signature((340,100),"Mira Dev",random.Random(seed),options.model_copy(update={"signature_thickness":1}))
+        assert explicit.tobytes()==baseline.tobytes()
+        sums=[]
+        for multiplier in (1.8,3):
+            layer,mask,info=signatures.render_signature((340,100),"Mira Dev",random.Random(seed),options.model_copy(update={"signature_thickness":multiplier}))
+            assert info["style"]==before["style"] and info["text"]==before["text"] and info["stroke_weight"]==before["stroke_weight"]
+            assert info["thickness_multiplier"]==multiplier
+            sums.append(np.asarray(layer.getchannel("A")).sum())
+            assert layer.getpixel((0,0))[3]==0
+            assert np.array_equal(np.asarray(mask)>0,np.asarray(layer.getchannel("A"))>0)
+        assert np.asarray(baseline.getchannel("A")).sum()<sums[0]<=sums[1]
+
+
+def test_signature_thickness_validated_and_applied_to_preview_and_asset(tmp_path):
+    from fastapi.testclient import TestClient
+    from backend.app.main import create_app
+    from backend.app.document_rules import apply_plan,RulePlan
+    app=create_app(f"sqlite:///{tmp_path/'db.sqlite'}",tmp_path,start_worker=False)
+    with TestClient(app) as client:
+        baseline=client.get("/api/signatures/preview?style=minimal&seed=42")
+        previews=client.get("/api/signatures/previews?style=minimal&seed=42&signature_thickness=2.5").json()
+        assert "signature_thickness=2.5" in previews[0]["url"]
+        thick=client.get(previews[0]["url"])
+        assert thick.status_code==200 and thick.content!=baseline.content
+        for value in (0,5.1,"nan"):
+            assert client.get(f"/api/signatures/preview?signature_thickness={value}").status_code==422
+        result=client.post("/api/assets/generate",json={"kind":"signature","value":"Mira Dev","options":{"signature_thickness":2.5}})
+        assert result.status_code==200,result.text
+        assert result.json()["metadata"]["details"]["thickness_multiplier"]==2.5
+    region=Region(id="sign",kind="signature",box=[0,0,340,100],rule_options={"signature_thickness":2.5})
+    assert apply_plan(region,RulePlan(kind="signature")).rule_options.signature_thickness==2.5

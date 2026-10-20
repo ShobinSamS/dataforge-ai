@@ -24,14 +24,31 @@ export default function SignatureGeneration({
     "mixed";
   const seed = (config.seed + offset) % 2 ** 31;
   const options = fields[0]?.rule_options;
-  const opacityQuery = new URLSearchParams({
+  const query = new URLSearchParams({
     ink_opacity_mode: options?.ink_opacity_mode || "random",
     ink_opacity: String(options?.ink_opacity ?? 1),
     ink_opacity_min: String(options?.ink_opacity_min ?? 0.45),
     ink_opacity_max: String(options?.ink_opacity_max ?? 1),
     ink_finish: options?.ink_finish || "natural",
     ink_irregularity: String(options?.ink_irregularity ?? 0.55),
-  }).toString();
+    signature_thickness: String(options?.signature_thickness ?? 1),
+    font_weight: options?.font_weight || "auto",
+    signature_content:
+      config.signature_content_override ||
+      options?.signature_content ||
+      "current",
+    color_mode: options?.color_mode || "black",
+    text_color: options?.text_color || "#000000",
+  });
+  for (const color of options?.color_palette || [
+    "#000000",
+    "#173574",
+    "#a61c32",
+    "#216e39",
+    "#6a338e",
+  ])
+    query.append("color_palette", color);
+  const opacityQuery = query.toString();
   const previews = useQuery({
     queryKey: ["signature_previews", style, seed, opacityQuery],
     queryFn: () =>
@@ -43,6 +60,33 @@ export default function SignatureGeneration({
   if (!config.signatures || !fields.length) return null;
   return (
     <div>
+      <label>
+        Signature content for this batch
+        <select
+          value={config.signature_content_override || "template"}
+          onChange={(e) =>
+            onChange({
+              signature_content_override:
+                e.target.value === "template"
+                  ? null
+                  : (e.target.value as Config["signature_content_override"]),
+            })
+          }
+        >
+          <option value="mixed">
+            Mixed · names, current and alphabet designs
+          </option>
+          <option value="current">Current version only</option>
+          <option value="name">Name only</option>
+          <option value="alphabet">Alphabet / initials only</option>
+          <option value="template">Use saved region content settings</option>
+        </select>
+      </label>
+      <p className="field-hint">
+        Content chooses the signing letters; style below chooses the shape and
+        flourishes. New batches default to Mixed. Choose saved region settings
+        to honor each region's content choice.
+      </p>
       <label>
         Signature variety for this batch
         <select

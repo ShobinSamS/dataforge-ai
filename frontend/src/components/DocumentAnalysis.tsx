@@ -119,7 +119,6 @@ export default function DocumentAnalysis({
     [message, setMessage] = useState("");
   const [pii, setPii] = useState<PiiResult | null>(null),
     [selected, setSelected] = useState<Set<string>>(new Set()),
-    [verified, setVerified] = useState(false),
     [table, setTable] = useState<TableResult | null>(null);
   const current = useRef(regions);
   current.current = regions;
@@ -138,7 +137,6 @@ export default function DocumentAnalysis({
     setPii(null);
     setSelected(new Set());
     setTable(null);
-    setVerified(false);
     onPreview([]);
   }, [fingerprint]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
@@ -195,7 +193,6 @@ export default function DocumentAnalysis({
               setMode(e.target.value);
               setPii(null);
               setTable(null);
-              setVerified(false);
             }}
           >
             <option value="existing">Existing text / configured OCR</option>
@@ -237,7 +234,6 @@ export default function DocumentAnalysis({
               setPii(result);
               setTable(null);
               setSelected(new Set(result.candidates.map((c) => c.id)));
-              setVerified(false);
             })
           }
         >
@@ -297,7 +293,6 @@ export default function DocumentAnalysis({
                         else next.delete(c.id);
                         return next;
                       });
-                      setVerified(false);
                     }}
                   />
                   Select
@@ -313,7 +308,6 @@ export default function DocumentAnalysis({
                           r.id === c.id ? { ...r, label: e.target.value } : r,
                         ),
                       });
-                      setVerified(false);
                     }}
                     maxLength={100}
                   />
@@ -331,7 +325,6 @@ export default function DocumentAnalysis({
                             : r,
                         ),
                       });
-                      setVerified(false);
                     }}
                   >
                     {fieldTypes.map((t) => (
@@ -367,7 +360,6 @@ export default function DocumentAnalysis({
                               : r,
                           ),
                         });
-                        setVerified(false);
                       }}
                     />
                   </label>
@@ -384,14 +376,6 @@ export default function DocumentAnalysis({
               </div>
             ))}
           </div>
-          <label className="check-label">
-            <input
-              type="checkbox"
-              checked={verified}
-              onChange={(e) => setVerified(e.target.checked)}
-            />
-            I checked the selected PII boxes and labels
-          </label>
           <button
             className="btn"
             disabled={busy || !selected.size}
@@ -400,7 +384,7 @@ export default function DocumentAnalysis({
                 regions,
                 pii.candidates.filter((c) => selected.has(c.id)),
                 template,
-                verified,
+                false,
               );
               if (result.added) {
                 onApply(result.regions);

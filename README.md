@@ -9,6 +9,15 @@ workflow. The full agent/diffusion platform remains later work.
 **New here? Open the [How-to Catalog](HOW_TO_USE.md)** for feature-by-feature
 recipes, copyable inputs, controls, exports and troubleshooting.
 
+**MCP integration:** [44 typed tools and client setup](docs/mcp.md) expose
+standalone signatures, stamps, seals, codes, text/portrait assets, templates,
+analysis and document/text dataset workflows over stdio or Streamable HTTP.
+Install the optional `requirements-mcp.txt`, keep DataForge running, then use
+`npm.cmd run mcp` for **http://127.0.0.1:8001/mcp**. Nothing is published remotely.
+
+**Stamp fields:** [Postage/revenue paper stamps and rubber stamps](docs/stamps.md)
+have separate controls, annotations and generation toggles from seals.
+
 ## Start on Windows
 
 Prerequisites: Python 3.11 or newer, Node.js 20.19+ or 22.12+, and npm. This
@@ -128,7 +137,7 @@ Automated validation does not establish training readiness or statistical utilit
 Faker names can coincide with real names.
 
 Presidio, general layout/borderless-table/signature detection, neural restoration,
-sample annotation editing, LangGraph, FAISS/RAG, MCP server, tabular synthesis,
+sample annotation editing, LangGraph, FAISS/RAG, tabular synthesis,
 AI image ingestion and diffusion are **not implemented**.
 Their navigation pages state this explicitly. No agent/model activity is faked.
 Local Qwen is implemented for text generation through an existing Ollama service;

@@ -41,14 +41,15 @@ change its revision, or erase pixels. Unknown/deleted template: 404; CPU busy: 4
 
 ## Rubber stamps
 
-Draw a new box or select an existing one, set **Field type → seal / stamp**, and
+Draw a new box or select an existing one, set **Field type → Rubber stamp**, and
 open **Rendering style and cleanup**. **Rubber stamp preset** offers Received,
 Paid, Approved, Rejected, Copy and Confidential. Presets set static wording and a
 double rectangular border. They preserve your ink color, random opacity and ink
 imperfection settings. Edit wording or choose random/custom wording for variations.
 Use a larger region for longer text. Preview with **Preview seal variation**.
 
-Stamp ink has a transparent background. Other seal shapes, multi-line fields,
-date stamps, wear and natural/worn ink also work for stamps. Stamps use the
-existing `seal` class in annotations/exports so existing class IDs remain stable.
-New datasets use the saved region settings; old datasets retain their originals.
+Rubber stamp ink has a transparent background and its own `rubber_stamp` class.
+Printed postage/revenue stamps are the separate **Postage / revenue stamp** field,
+with opaque paper, perforations and artwork. They use the `stamp` class. These
+classes are appended after the original class IDs. New datasets use the saved
+region settings; old datasets retain their originals. See [stamps.md](stamps.md).

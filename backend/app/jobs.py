@@ -21,6 +21,10 @@ logger = logging.getLogger("dataforge.jobs")
 def snapshot_regions(snapshot):
     regions=[]
     for saved in snapshot["regions"]:
+        if saved.get("kind")=="seal" and "seal_color" not in saved.get("rule_options",{}):
+            saved={**saved,"rule_options":{**saved.get("rule_options",{}),"seal_color":"random"}}
+        if saved.get("kind")=="stamp" and "stamp_ink_mode" not in saved.get("rule_options",{}):
+            saved={**saved,"rule_options":{"stamp_palette":"random","stamp_cancellation":"random",**saved.get("rule_options",{}),"stamp_ink_mode":"custom"}}
         if saved.get("kind")=="seal" and "seal_text_mode" not in saved.get("rule_options",{}):
             saved={**saved,"rule_options":{**saved.get("rule_options",{}),"seal_text_mode":"static","seal_allow_repeated_words":True}}
         regions.append(Region.model_validate(saved))

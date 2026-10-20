@@ -9,12 +9,15 @@ from faker import Faker
 from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 from .qr_capacity import qr_code, PIXELS_PER_MODULE
 from .schemas import CLASS_NAMES, GenerationConfig, Region, region_action
-from .portraits import illustration, portrait_metadata
+from .portraits import illustration, portrait_metadata, portrait_background
 from .patterns import generate_pattern, SETS
 from .fonts import load_font, native_font_id, resolve_font_weight, cursive_font_id
 from .restoration import restore_region
 from .signatures import render_signature
 from .seals import plan_seal_content,seal_text,render_seal
+from .stamps import plan_stamp, render_stamp, plan_rubber_stamp, render_rubber_stamp, stamp_artwork
+from .colors import choose_color
+from .addresses import generate_address
 
 
 def font(size: int, font_id: str = "auto"):
@@ -33,13 +36,21 @@ def fictional_values(regions: list[Region], seed: int, config: GenerationConfig 
               "identifier": f"{seed:010d}", "text": f"Fictional record {seed % 1000000:06d}"}
     result = {}
     for region in regions:
-        if region.kind=="seal":
+        if region.kind=="drawing":
+            result[region.id]="Freehand drawing"
+        elif region.kind=="stamp":
+            result[region.id]=plan_stamp(region.rule_options,seed,region.id,region.rule[8:] if region.rule.startswith("literal:") else None)["caption"]
+        elif region.kind=="rubber_stamp":
+            result[region.id]=plan_rubber_stamp(region.rule_options,seed,region.id,region.rule[8:] if region.rule.startswith("literal:") else None)["text"]
+        elif region.kind=="seal":
             literal=region.rule[8:] if region.rule.startswith("literal:") else None
             result[region.id]=seal_text(plan_seal_content(region.rule_options,seed,region.id,literal))
         elif region.rule_options.literal_text is not None:
             result[region.id]=region.rule_options.literal_text
         elif region.rule.startswith("literal:"):
             result[region.id] = region.rule[8:]
+        elif region.kind=="address" and region.rule_options.address_country:
+            result[region.id]=generate_address(region.rule_options,seed)["text"]
         elif region.rule_options.identifier_pattern:
             options=region.rule_options
             result[region.id]=generate_pattern(options.identifier_pattern,seed,options.date_start,options.date_end)
@@ -69,8 +80,18 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
     w, h = size
     layer = Image.new("RGBA", size)
     d = ImageDraw.Draw(layer)
-    ink = style.text_color if style else (32, 60, 102, 255)
-    if kind == "signature":
+    ink = choose_color(style,rng,"text") if style else (32, 60, 102, 255)
+    if kind == "drawing":
+        points=style.drawing_points if style else []
+        if not points: raise ValueError("Draw at least one stroke before rendering")
+        large=Image.new("RGBA",(w*3,h*3));draw=ImageDraw.Draw(large)
+        coords=[(round(x*(w-1)*3),round(y*(h-1)*3)) for x,y in points]
+        width=max(1,round(style.drawing_width*3));radius=width/2
+        draw.line(coords,fill=ink,width=width,joint="curve")
+        for x,y in (coords[0],coords[-1]):draw.ellipse((x-radius,y-radius,x+radius,y+radius),fill=ink)
+        layer=large.resize(size,Image.Resampling.LANCZOS)
+        return layer,layer.getchannel("A").point(lambda p:255 if p else 0)
+    elif kind == "signature":
         from .schemas import RuleOptions
         layer,mask,_=render_signature(size,value,rng,style or RuleOptions())
         return layer,mask
@@ -80,6 +101,13 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
         texts=value.split(" / ",1) if " / " in value else value.splitlines()
         content={"top":texts[0] if texts else seal_style.seal_text,"bottom":seal_style.seal_bottom_text,"lines":"\n".join(texts[1:]).splitlines() if len(texts)>1 else seal_style.seal_subtext.splitlines(),"mode":"static"}
         layer,mask,_=render_seal(size,content,rng,seal_style)
+        return layer,mask
+    elif kind in {"stamp", "rubber_stamp"}:
+        from .schemas import RuleOptions
+        options=style or RuleOptions()
+        seed=rng.randrange(2**31)
+        if kind=="stamp": layer,mask,_=render_stamp(size,plan_stamp(options,seed,literal=value),rng,options)
+        else: layer,mask,_=render_rubber_stamp(size,plan_rubber_stamp(options,seed,literal=value),rng,options)
         return layer,mask
     elif kind == "qr":
         code = qr_code(value,qr_padding)
@@ -121,7 +149,7 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
 
 def optional_regions(width: int, height: int, regions: list[Region], config: GenerationConfig) -> list[Region]:
     """Assets use dedicated reviewed regions. Never paste over unreviewed locations."""
-    enabled = {"signature": config.signatures, "seal": config.seals, "qr": config.qr_codes, "barcode": config.barcodes}
+    enabled = {"signature": config.signatures, "seal": config.seals, "stamp": config.stamps, "rubber_stamp": config.rubber_stamps, "qr": config.qr_codes, "barcode": config.barcodes}
     # Disabled visual regions still erase the original, but do not add a replacement.
     return [r for r in regions if region_action(r)=="replace" and enabled.get(r.kind, True)]
 
@@ -130,11 +158,15 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
     seed = config.seed + index * 1009 + attempt * 10000019
     rng = random.Random(seed)
     with Image.open(source) as original:
-        image = original.convert("RGB")
+        canvas=bool(original.info.get("dataforge_canvas"))
+        dpi=original.info.get("dpi")
+        image = original.convert("RGBA" if canvas and original.mode=="RGBA" else "RGB")
     width, height = image.size
+    # Authored canvases start blank. Per-element backgrounds are composed in
+    # layer order below, rather than erasing earlier elements.
     for r in regions:
-        if r.replace:
-            restore_region(image,r.box,glyphs_only=r.rule_options.cleanup_mode=="ink_only" and region_action(r)=="replace" and r.kind not in {"signature","seal","qr","barcode","portrait"},mode=r.rule_options.background_mode,color=r.rule_options.background_color)
+        if r.replace and not canvas:
+            restore_region(image,r.box,glyphs_only=r.rule_options.cleanup_mode=="ink_only" and region_action(r)=="replace" and r.kind not in {"signature","seal","stamp","rubber_stamp","qr","barcode","portrait","drawing"},mode=r.rule_options.background_mode,color=r.rule_options.background_color)
     enabled = optional_regions(width,height,regions,config)
     values = fictional_values(enabled, seed,config)
     # Build/transforms one mask at a time; do not retain full-page masks per region.
@@ -145,8 +177,12 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
     typography={}
     signature_details={}
     seal_details={}
+    stamp_details={}
+    address_details={}
     for r in enabled:
         x,y,w,h = r.box
+        if r.kind=="address" and r.rule_options.address_country and r.rule_options.literal_text is None and not r.rule.startswith("literal:"):
+            address_details[r.id]=generate_address(r.rule_options,seed)
         if r.kind=="portrait":
             if r.rule_options.portrait_source=="asset_pool":
                 if not asset_root or not r.rule_options.portrait_asset_ids: raise ValueError("Select portrait images for the asset pool")
@@ -158,18 +194,34 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
             else:
                 layer=illustration((w,h),rng).convert("RGBA")
                 asset_provenance[r.id]={"source":"fictional_procedural_illustration"}
-            mask=Image.new("L",(w,h),255)
+            layer=portrait_background(layer,r.rule_options,seed)
+            asset_provenance[r.id]["background"]=r.rule_options.portrait_background
+            mask=layer.getchannel("A").point(lambda p:255 if p else 0)
         else:
             style=r.rule_options.model_copy(deep=True)
             if r.kind!="signature" and style.font_id=="auto" and style.writing_style=="cursive": style.font_id=cursive_font_id()
             if r.kind!="signature" and style.font_id=="auto" and r.source_font: style.font_id=native_font_id(r.source_font)
             if r.kind!="signature":style.font_id=resolve_font_weight(style.font_id,style.font_weight)
             if r.kind!="signature" and style.font_size is None and r.source_font_size: style.font_size=max(6,min(200,round(r.source_font_size)))
+            if r.kind not in {"signature","seal","stamp","rubber_stamp","qr","barcode"}:
+                style.text_color=choose_color(style,rng,"text")
             typography[r.id]={"font_id":style.font_id,"preferred_size":style.font_size,"text_color":style.text_color}
             if r.kind=="signature":
                 if config.signature_style_override:style.signature_style=config.signature_style_override
+                if config.signature_content_override:style.signature_content=config.signature_content_override
                 layer,mask,signature_details[r.id]=render_signature((w,h),values[r.id],rng,style)
                 values[r.id]=signature_details[r.id]["text"]
+            elif r.kind in {"stamp", "rubber_stamp"}:
+                literal=r.rule[8:] if r.rule.startswith("literal:") else None
+                if r.kind=="stamp":
+                    content=plan_stamp(style,seed,r.id,literal)
+                    source,provenance=stamp_artwork(style,asset_root,seed) if content["style"] in {"portrait","revenue"} else (None,{})
+                    layer,mask,stamp_details[r.id]=render_stamp((w,h),content,rng,style,source)
+                    if provenance: asset_provenance[r.id]=provenance
+                else:
+                    content=plan_rubber_stamp(style,seed,r.id,literal)
+                    layer,mask,stamp_details[r.id]=render_rubber_stamp((w,h),content,rng,style)
+                values[r.id]=stamp_details[r.id]["text"]
             elif r.kind=="seal":
                 literal=r.rule[8:] if r.rule.startswith("literal:") else None
                 content=plan_seal_content(style,seed,r.id,literal)
@@ -177,19 +229,26 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
                 values[r.id]=seal_details[r.id]["text"]
             else:
                 layer, mask = asset(r.kind, (w,h), values[r.id], rng,style,config.qr_padding)
-        image.paste(layer, (x,y), layer)
+        if canvas and r.rule_options.background_mode=="solid":
+            backdrop=Image.new("RGBA",layer.size,r.rule_options.background_color)
+            backdrop.alpha_composite(layer);layer=backdrop
+        if image.mode=="RGBA":image.alpha_composite(layer,(x,y))
+        else:image.paste(layer, (x,y), layer)
         local_path = dest/f"local_{r.id}.png"
         mask.save(local_path)
         rendered.append((r,local_path))
     if angle:
-        image = image.rotate(angle, resample=Image.Resampling.BICUBIC, fillcolor="white")
+        image = image.rotate(angle, resample=Image.Resampling.BICUBIC, fillcolor=(0,0,0,0) if image.mode=="RGBA" else "white")
     blurred = rng.random() < config.blur_probability
     if blurred:
-        image = image.filter(ImageFilter.GaussianBlur(rng.uniform(.35,.8)))
+        radius=rng.uniform(.35,.8)
+        image = (image.convert("RGBa").filter(ImageFilter.GaussianBlur(radius)).convert("RGBA") if image.mode=="RGBA"
+                 else image.filter(ImageFilter.GaussianBlur(radius)))
     if config.noise_sigma:
         pixels = np.asarray(image).astype(np.float32)
-        noise = np.random.default_rng(seed).normal(0,config.noise_sigma,pixels.shape).astype(np.float32)
-        image = Image.fromarray(np.clip(pixels+noise,0,255).astype(np.uint8))
+        noise = np.random.default_rng(seed).normal(0,config.noise_sigma,pixels[:,:,:3].shape).astype(np.float32)
+        pixels[:,:,:3]=np.clip(pixels[:,:,:3]+noise,0,255)
+        image = Image.fromarray(pixels.astype(np.uint8))
     dest.mkdir(parents=True,exist_ok=True)
     annotations = []
     errors = []
@@ -220,11 +279,13 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
         annotations[-1]["synthetic"]=True
         if r.id in signature_details:annotations[-1]["signature"]=signature_details[r.id]
         if r.id in seal_details:annotations[-1]["seal"]=seal_details[r.id]
-        if r.kind not in {"portrait","signature","seal","qr","barcode"}:
+        if r.id in stamp_details:annotations[-1][r.kind.value]=stamp_details[r.id]
+        if r.id in address_details:annotations[-1]["address"]=address_details[r.id]
+        if r.kind not in {"portrait","signature","seal","stamp","rubber_stamp","qr","barcode"}:
             annotations[-1]["typography"]=typography[r.id]
         if r.id in asset_provenance: annotations[-1]["asset_provenance"]=asset_provenance[r.id]
     image_path = dest/"image.png"
-    image.save(image_path)
+    image.save(image_path,**({"dpi":dpi} if canvas and dpi else {}))
     return {"image":image,"annotations":annotations,"errors":errors,"width":width,"height":height,
             "sha256":hashlib.sha256(image_path.read_bytes()).hexdigest(),"seed":seed,
             "transform":{"rotation":angle,"blur":blurred,"noise_sigma":config.noise_sigma},

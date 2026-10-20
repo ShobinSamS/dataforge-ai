@@ -3,6 +3,15 @@
 **Choose a recipe, follow the steps, then review and export.**
 This catalog describes the features currently implemented in this workspace.
 
+**Create from scratch:** use the new button in Dashboard or Template library
+for A4/custom canvases, freehand pen strokes, positioned text/signatures/seals,
+photos with background controls and transparent PNG downloads. See the
+[canvas guide](docs/canvas.md).
+
+**Country-aware addresses:** select an address region, choose a country and
+components, then set their order and line breaks or use a natural-language rule.
+See the [address guide](docs/addresses.md) for prompt examples and data coverage.
+
 **App:** [Open DataForge](http://127.0.0.1:5173/) ·
 **API:** [Interactive API documentation](http://127.0.0.1:8000/docs)
 
@@ -46,6 +55,11 @@ the app. Keep the launcher running. Press **Ctrl+C in the launcher** to stop the
 processes it started. If you launched the frontend/API in separate terminals,
 stop each with Ctrl+C instead.
 
+If another app uses port 8000, choose a free API port with
+`npm.cmd start -- --api-port 8002`. The interface still opens on port 5173;
+API documentation then uses `http://127.0.0.1:8002/docs`. For MCP clients,
+use the matching API URL shown on the MCP tools page.
+
 After a backend code or `.env` change, stop and restart your app processes.
 Refreshing the browser alone does not reload backend routes or settings.
 
@@ -69,7 +83,7 @@ DataForge does not install/start Ollama or download model weights automatically.
 | Settings | View runtime configuration and capability status | Available; edit `.env` to change server settings |
 | AI image studio | Read diffusion integration status | Planned; diffusion is not enabled |
 | Agent activity | Read agent integration status | Planned; Qwen text generation works independently |
-| MCP tools | Read MCP integration status | Planned; no MCP server runs |
+| MCP tools | Connect standard clients to 44 typed generation/template/dataset tools | Optional stdio / Streamable HTTP server; see [MCP setup](docs/mcp.md) |
 
 **Choose an engine for text:**
 
@@ -86,7 +100,7 @@ DataForge does not install/start Ollama or download model weights automatically.
    **New template** in the Template library to upload your own document.
 2. In the editor, select each region that needs replacement. Set its **Field
    type**, boundaries, sensitivity and **Action** (replace, erase only, keep).
-3. Check **I verified this region** for each sensitive replacement region.
+3. Inspect all selected regions and their replacement or erase actions.
    For the demo, review the name, ID, date, email, signature, seal and QR regions.
 4. Inspect the whole page. If a sensitive area is missing, use **+** on the
    canvas to draw a region. Drag/resize boxes; use the hand tool to pan and the
@@ -127,11 +141,16 @@ text or installed TrOCR recognition, then **Find PII and auto-label**. Pink dash
 preview suggestions. The panel shows the actual **Extracted value**, **Why selected**
 and original OCR line. Headings, empty labels and advertising text are not values.
 Use **Correct extracted value** for transcription errors (OCR may confuse X/Y even
-with a high score). Uncheck mistakes or correct labels/types, optionally confirm the
-selected suggestions, then **Apply selected as erase regions**. Boxes remain editable
+with a high score). Uncheck mistakes or correct labels/types, then
+**Apply selected as erase regions**. Confirm them together in the template review. Boxes remain editable
 on the canvas; choose Replace if you want synthetic values instead. Source pixels stay
 unchanged until generation. Untouched upload OCR suggestions are replaced; manual edits
 are preserved and overlapping suggestions are skipped. Review the full page and save.
+
+If the upload has only QR/barcode/photo boxes, leave them in place. **Existing text /
+configured OCR** falls back to installed printed TrOCR when no text is available,
+and detects page text lines independently of those visual boxes. Explicit text
+regions are used as single-line crops. Full-page CPU recognition can take a few minutes.
 
 **Tables / handwriting:** **Extract ruled table** finds enclosed cells. Select English
 handwriting for one handwritten line per cell. Correct transcription/rows/columns,
@@ -239,13 +258,66 @@ select **portrait**, and choose **Replace with generated content**. The default
 **Offline fictional illustration** draws seeded faces; these are not photographs.
 For photographic output, use **Approved photo / image pool**, confirm permission,
 and upload images you can use in the dataset (including externally generated
-fictional faces). Add up to 20 images. Each sample selects from the pool using its
+fictional faces). **Add images or ZIP to pool** accepts multiple PNG, JPEG or WebP
+images at once, or a ZIP containing them (folders are allowed). New images append
+to the selected pool, up to 20 total. Combined uploaded and expanded image bytes
+are each limited to 40 MB. A corrupt, unsupported or oversized batch imports
+nothing. Each sample selects from the pool using its
 seed and crops the image to fill the rectangle. Upload limits are 8 MB, 8 MP and
 one frame; images are normalized and metadata stripped. Source/permission notes
 and hashes are recorded in annotations. Portrait masks cover the full photo
 rectangle, not the person's silhouette. A small pool can repeat photos.
 Portraits have no visible illustration caption. Synthetic provenance is retained
 in dataset metadata rather than added to generated values or portrait pixels.
+
+**Signature boldness:** In Template editor, select the signature and expand
+**Rendering style and cleanup**. Move **Signature boldness** from 1× to 5× for
+thicker strokes. Default 1× keeps the current random normal/medium/bold pen weights;
+**Use default boldness** resets it. The same seed retains lettering and layout.
+Verify the region, save the review and create a new dataset to use the change.
+Generation previews use the first signature region's saved boldness. Existing or
+resumed jobs keep their original settings. Standalone/MCP assets use
+`options.signature_thickness` with the same 1–5 range and default 1. Stroke
+thickening is stronger than earlier versions, including at 2.5×.
+
+**Signature content:** This is separate from **Signature style**. **Current**
+keeps the existing style-dependent full names and abbreviations; **Name only**
+retains all name words; **Alphabet only** uses 1–3 initials/letters. **Mixed**
+varies among all three. Names can still have loops, flourishes and other selected
+styles. Content overrides style-specific letter-count abbreviations. Generation
+studio defaults new batches to Mixed; choose Current, Name, Alphabet, or **Use
+saved region content settings** independently of the batch style selector.
+Old jobs keep their original content settings; save edits and start a new batch.
+
+**Ink colors:** Signatures, seals, text, dates/DOB, names and identifiers default
+to black. Use the color swatches or custom picker in **Rendering style and
+cleanup** (signatures/seals) or **Font and appearance** (text fields). Choose
+**Random from selected colors** to vary ink per sample using the dataset seed.
+Click swatches to include/exclude them; the custom picker adds another palette
+color. At least one and at most 20 colors are supported. Seals also offer varied
+border/text colors. Text can explicitly **Match original lettering** instead.
+Color selection does not change the signing letters or layout for the same seed.
+
+**Stamp print:** New paper stamps default to full-opacity dark black. In
+**Rendering style and cleanup → Stamp print**, choose **Custom** for other
+palettes, a custom hex color, random opacity or worn print. **Cancellation mark**
+defaults to **none**. Pen/wave cancellation marks belong to the stamp itself;
+they are not pieces of a separate signature. A signature region renders in its
+own selected box. Existing saved styles and old jobs retain their settings.
+
+**One template review:** Inspect the page and all region actions, then use
+**Review all regions together** and **Save review**. This confirms every region
+in one action. Any region edit clears the template confirmation. Per-region
+verification checkboxes and the separate PII confirmation are no longer needed.
+The export button confirms the generated-dataset review as part of downloading.
+
+**Recheck samples:** Use this in Dataset gallery or Export & history if an older
+dataset has QR decode rejections. Dense transparent QR codes on colored paper
+are now checked with local contrast normalization and alternate detection; output
+padding/background stay unchanged. Rechecking updates validation and accepted
+counts without regenerating images. Incorrect payloads, damaged codes and other
+validation failures remain rejected. Build a new ZIP after the recheck; old ZIPs
+remain unchanged.
 
 **Optional online import:** The LLM does not browse or scrape. To enable the
 separate download button, an operator must set these in `.env` and restart the API:
@@ -534,7 +606,7 @@ adjust inputs and generate a new dataset/job.
 ### Document export
 
 Open **Export & history**, select the document dataset, inspect its quality and
-samples, choose a format, confirm the review, then click **Build & download ZIP**.
+samples, choose a format, then click **Confirm review & download ZIP**.
 
 | Format | Main use |
 |---|---|
@@ -659,14 +731,15 @@ proof of concept does not provide network-facing authentication. Uploaded real
 documents and pasted source texts remain sensitive even when generated outputs
 are fictional. No automatic model downloads or cloud-inference fallback occur.
 
-## Automatic visual boxes and rubber stamps
+## Automatic visual boxes, paper stamps and rubber stamps
 
 Uploads now propose QR, barcode and face-based photo boxes alongside OCR text.
 Use **Find visual regions** to scan an older template. Select a proposed box to
 change its label/type, resize it or use **Delete region**. Photo bounds are estimates
 and photos without a detected face need manual boxes. Save after reviewing.
 
-To add a stamp, draw a box, choose **seal / stamp**, then open **Rendering style
-and cleanup → Rubber stamp preset**. Received, Paid, Approved, Rejected, Copy and
-Confidential presets support random opacity and natural ink flaws. Edit wording
-or use random/custom formats. See [visual box and stamp guide](docs/visual-regions.md).
+To add a paper stamp, draw a box, choose **Postage / revenue stamp**, then open
+**Rendering style and cleanup** for artwork, values, perforations and cancellations.
+For Received, Paid, Approved and other ink-only marks, choose the separate
+**Rubber stamp** field and its preset. Seals remain their own field. See the
+[stamp guide](docs/stamps.md) and [visual box guide](docs/visual-regions.md).

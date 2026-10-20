@@ -114,14 +114,11 @@ it("requires explicit apply, preserves OCR coordinates, and carries human verifi
     target: { value: "Arun K. Kumar" },
   });
   expect(screen.getByText("Arun K. Kumar")).toBeTruthy();
-  fireEvent.click(
-    screen.getByLabelText("I checked the selected PII boxes and labels"),
-  );
   fireEvent.click(screen.getByText("Apply selected as erase regions"));
   expect(apply).toHaveBeenLastCalledWith([
     {
       ...candidate,
-      confirmed: true,
+      confirmed: false,
       pii_value: "Arun K. Kumar",
       pii_reason: "User-corrected transcription. " + candidate.pii_reason,
     },

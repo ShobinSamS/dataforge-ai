@@ -4,14 +4,17 @@ In Template editor, immediately after upload, use **Find PII and extract tables*
 
 1. Choose existing PDF/OCR text, **English printed · TrOCR**, or **English handwriting · TrOCR**.
 2. Click **Find PII and auto-label**. Existing text is classified by local Qwen plus
-   rules. With TrOCR, existing boxes are single-line crops; if there are no boxes,
-   OpenCV proposes lines across the page. Up to 80 groups are analyzed per request.
-3. Pink dashed rectangles show suggestions. Correct the labels/types, uncheck false
-   positives, and optionally check that you verified the selected boxes. Apply them
+   rules. Existing text / configured OCR automatically falls back to installed
+   printed TrOCR when no text is available. With TrOCR, existing text boxes are
+   single-line crops; if there are none, OpenCV proposes lines across the page.
+   QR, barcode, photo, signature, seal and stamp boxes do not block that fallback
+   and are not used as text crops. Up to 80 groups are analyzed per request.
+3. Pink dashed rectangles show suggestions. Correct the labels/types and uncheck false
+   positives. Apply them
    as erase regions. Untouched upload OCR proposals are replaced; edited/manual
    regions are kept. Conflicting boxes are skipped with a count. Move/resize/delete
    the resulting regions as usual. Choose Replace if synthetic values are wanted.
-4. Review the entire page and save the review before generation. Analysis does not
+4. Review the entire page, confirm all regions together and save the review before generation. Analysis does not
    modify source pixels, save a template version, or confirm the whole page for you.
 
 Qwen returns source IDs, semantic categories, a literal evidence quote and a short

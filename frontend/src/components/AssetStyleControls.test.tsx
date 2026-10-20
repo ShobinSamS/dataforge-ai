@@ -4,12 +4,12 @@ import AssetStyleControls from "./AssetStyleControls";
 import { defaultRuleOptions } from "./RegionRuleControls";
 import type { Region } from "../types";
 afterEach(cleanup);
-it("offers rubber stamp presets through the existing seal renderer and preserves ink settings", () => {
+it("offers rubber stamp presets in a separate field and preserves ink settings", () => {
   const changed = vi.fn();
   const field: Region = {
     id: "stamp",
     label: "Stamp",
-    kind: "seal",
+    kind: "rubber_stamp",
     box: [0, 0, 300, 100],
     text: "",
     confidence: 1,
@@ -46,11 +46,9 @@ it("offers rubber stamp presets through the existing seal renderer and preserves
         confirmed: false,
         rule: "",
         rule_options: expect.objectContaining({
-          seal_text: word,
-          seal_subtext: "",
-          seal_text_mode: "static",
+          rubber_stamp_text: word,
+          rubber_stamp_mode: "static",
           literal_text: null,
-          seal_style: "rectangle",
           ink_finish: "worn",
           ink_opacity_mode: "random",
         }),
@@ -82,6 +80,32 @@ it("offers mixed, abbreviated and undecorated signatures and resets confirmation
   );
   const select = screen.getByLabelText("Signature style") as HTMLSelectElement;
   expect(select.value).toBe("mixed");
+  fireEvent.change(screen.getByLabelText("Signature content"), {
+    target: { value: "name" },
+  });
+  expect(changed).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      confirmed: false,
+      rule_options: expect.objectContaining({ signature_content: "name" }),
+    }),
+  );
+  const thickness = screen.getByLabelText(
+    "Signature boldness",
+  ) as HTMLInputElement;
+  expect(thickness.value).toBe("1");
+  fireEvent.change(thickness, { target: { value: "2.4" } });
+  expect(changed).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      confirmed: false,
+      rule_options: expect.objectContaining({ signature_thickness: 2.4 }),
+    }),
+  );
+  fireEvent.click(screen.getByText("Use default boldness"));
+  expect(changed).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      rule_options: expect.objectContaining({ signature_thickness: 1 }),
+    }),
+  );
   for (const value of [
     "mixed",
     "name",

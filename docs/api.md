@@ -5,13 +5,22 @@ Synthetic text endpoints are additive under `/api/text/*`; see the complete
 contracts below remain backward compatible; document rules add optional fields.
 
 Interactive OpenAPI and schemas: `http://127.0.0.1:8000/docs`.
+Optional [MCP server and tool catalog](mcp.md): stdio or Streamable HTTP at
+`http://127.0.0.1:8001/mcp`, using the same API/worker.
 Coordinates are canonical page pixels, never CSS display pixels. `Region.box`
 is `[x, y, width, height]`, integer, inside the page. One page per template.
 
 | Method | Endpoint | Purpose / contract |
 |---|---|---|
 | GET | `/api/system` | Real RAM, OCR configuration and feature availability |
+| GET | `/api/addresses/countries` | Supported offline postal-reference countries, country names and subset row counts |
+| POST | `/api/addresses/preview` | `{options, seed}` → address text, structured components, country/format and GeoNames attribution/version. No dataset saved; no network request. |
+| POST | `/api/templates/blank` | Create an authored canvas: A4/150 DPI default, A5/Letter/custom size, portrait/landscape, white/color/transparent background and optional starter element. [Canvas guide](canvas.md) |
+| POST | `/api/templates/{id}/preview` | Canvas-only `{regions, seed}` → PNG data URL and annotations. Renders unsaved layers without saving a review or queueing a job. Later layers appear on top; alpha retained. |
+| POST | `/api/jobs/{id}/revalidate` | Recheck completed document images/masks and update acceptance reports. Pixels, labels and generation settings stay unchanged. Returns total/accepted/rejected/status; busy or active jobs return 409. |
+| POST | `/api/portraits/batch` | Multipart `files` (multiple PNG/JPEG/WebP or ZIP), `rights_confirmed`, `license_note`, `attribution`, `max_count` (remaining slots, 1–20). Returns `{portraits, count}`; validates the complete batch before saving. Maximum 40 MB uploaded/expanded, 8 MB / 8 megapixels per image; 100 ZIP entries. Archives are read without extraction; unsafe paths, encrypted files and non-images are rejected. Existing `/api/portraits` single-image upload remains supported. |
 | GET | `/api/fonts` | Installed font IDs/labels; no filesystem paths |
+| POST | `/api/assets/generate` | Standalone signature/seal/stamp/QR/barcode/text/portrait; returns PNG and mask data URLs plus metadata, without saving a dataset. [Contract/examples](mcp.md#http-api-addition) |
 | POST | `/api/templates/{id}/font-match` | `{region}` → region with local font/size/color selection and similarity metadata; optional configured local OCR if source text empty |
 | POST | `/api/templates/{id}/detect-visual-regions` | Read-only local QR/barcode/photo proposals; `{candidates, engine, warnings}`, unconfirmed `origin:"visual"` boxes. CPU busy: 409. See [visual regions](visual-regions.md) |
 | POST | `/api/document-rules/interpret` | `{region, engine:"auto"\|"local_llm"}` → validated region, explanation, engine, warnings and format references; clears confirmation |

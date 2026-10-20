@@ -9,12 +9,22 @@ from .schemas import RuleOptions
 from .signature_strokes import PEN_STYLES,render_pen_signature
 from .ink import apply_ink_opacity
 from .ink_finish import apply_ink_finish
+from .colors import choose_color,restore_ink_colors,rgb
 
 EXPRESSIVE=("tall_initial","compact","angular","looped","sweeping")
 STYLES=("name","first_name","single_letter","two_letters","initials","letter_wave","monogram","flourish")+EXPRESSIVE+PEN_STYLES
 
 
+def content_mode(style,rng):
+    if style.signature_content!="mixed":return style.signature_content
+    independent=random.Random();independent.setstate(rng.getstate())
+    return random.Random(independent.getrandbits(64)^0x434F4E54).choice(("current","name","alphabet"))
+
+
 def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
+    mode=content_mode(style,rng)
+    content_rng=random.Random();content_rng.setstate(rng.getstate())
+    content_rng=random.Random(content_rng.getrandbits(64)^0x414C5048)
     words=re.findall(r"[^\W\d_]+",value,flags=re.UNICODE)
     if not words:raise ValueError("Signature text needs at least one alphabetic character")
     first,last=words[0],words[-1]
@@ -40,10 +50,19 @@ def signature_plan(value: str,rng:random.Random,style:RuleOptions) -> dict:
     elif family=="terminal_loop":chunks=[rng.choice((first,last,first+" "+last))]
     elif family in {"enclosed","interwoven"}:chunks=[" ".join(words)]
     else:chunks=[value.strip()]
+    if mode=="name":
+        chunks=[" ".join(words)]
+        if family=="stacked" and len(words)>1:chunks=[" ".join(words[:-1])+"\n"+words[-1]]
+        elif family=="letter_wave" and len(words)>1:chunks=[" ".join(words[:-1])+" ",words[-1]]
+    elif mode=="alphabet":
+        letters="".join(word[0].upper() for word in words) if len(words)>1 else first[:3].upper()
+        minimum=2 if family=="letter_wave" and len(letters)>1 else 1
+        letters=letters[:content_rng.randint(minimum,min(3,len(letters)))]
+        chunks=[letters[:-1],letters[-1]] if family=="letter_wave" and len(letters)>1 else [letters]
     fonts=installed_fonts()
     choices=[key for key in ("segoesc","freescpt","gabriola","brushsci","mistral","lhandw") if key in fonts]
     face=(rng.choice(choices) if choices else cursive_font_id()) if style.font_id=="auto" else style.font_id
-    return {"style":family,"text":"".join(chunks),"chunks":chunks,"font_id":resolve_font_weight(face,style.font_weight),
+    return {"style":family,"text":"".join(chunks),"chunks":chunks,"content_mode":mode,"font_id":resolve_font_weight(face,style.font_weight),
         "finish":family in {"monogram","flourish","looped","sweeping"} or
                  (family in {"letter_wave","tall_initial"} and rng.random()<.6)}
 
@@ -200,6 +219,9 @@ def _fit_expressive(size,plan,rng,style,scale):
 
 
 def render_signature(size,value,rng:random.Random,style:RuleOptions):
+    requested=style.signature_content
+    resolved=content_mode(style,rng)
+    style=style.model_copy(update={"signature_content":resolved,"text_color":choose_color(style,rng,"signature")})
     # Use an independent seeded stream so pen weight cannot change the chosen
     # letters, layout or ornaments, and explicit weight choices remain fixed.
     weight_rng=random.Random();weight_rng.setstate(rng.getstate())
@@ -217,9 +239,26 @@ def render_signature(size,value,rng:random.Random,style:RuleOptions):
         alpha=alpha.resize((size[0]*3,size[1]*3),Image.Resampling.BICUBIC).filter(ImageFilter.MaxFilter(radius*2+1)).resize(size,Image.Resampling.LANCZOS)
         layer=Image.new("RGBA",size,style.text_color);layer.putalpha(alpha)
         mask=alpha.point(lambda p:255 if p else 0)
+    if style.signature_thickness>1:
+        # Add a rounded nib to the current pen weight. A square max-filter at
+        # the multiplied random weight can fill small letters into solid blocks.
+        import cv2
+        alpha=layer.getchannel("A")
+        core=(np.asarray(alpha)>100).astype(np.uint8)
+        distances=cv2.distanceTransform(core,cv2.DIST_L2,3)
+        nib=float(np.percentile(distances[core>0],70)) if np.any(core) else 1
+        radius=max(1,min(round(min(size)*.055*3),round(3*max(.8,nib,size[1]*.008)*(style.signature_thickness-1))))
+        large=np.asarray(alpha.resize((size[0]*3,size[1]*3),Image.Resampling.BICUBIC))
+        kernel=cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(radius*2+1,radius*2+1))
+        alpha=Image.fromarray(cv2.dilate(large,kernel)).resize(size,Image.Resampling.LANCZOS)
+        layer=Image.new("RGBA",size,style.text_color);layer.putalpha(alpha)
+        mask=alpha.point(lambda p:255 if p else 0)
     layer,mask,finish=apply_ink_finish(layer,rng,style,"signature")
+    if style.color_mode in {"manual","random","mixed"}:
+        layer=restore_ink_colors(layer,[rgb(style.text_color)])
     layer,mask,opacity_info=apply_ink_opacity(layer,rng,style,"signature")
-    info.update(stroke_weight=weight,thickness_scale=factor,ink_finish=finish,**opacity_info)
+    info.update(stroke_weight=weight,thickness_scale=factor,thickness_multiplier=style.signature_thickness,
+                content_mode=resolved,requested_content=requested,text_color=style.text_color,ink_finish=finish,**opacity_info)
     return layer,mask,info
 
 
@@ -244,7 +283,7 @@ def _render_signature(size,value,rng:random.Random,style:RuleOptions):
     ink=style.text_color
     layer=Image.new("RGBA",(W,H));draw=ImageDraw.Draw(layer)
     chunks=list(plan["chunks"])
-    if plan["style"]=="monogram":chunks=list(chunks[0])
+    if plan["style"]=="monogram" and plan["content_mode"]!="name":chunks=list(chunks[0])
     max_size=style.font_size or min(200,max(12,round(h*1.6)))
     for pixels in range(max_size,5,-1):
         face=load_font(pixels*scale,plan["font_id"])

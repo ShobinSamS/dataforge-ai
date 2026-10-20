@@ -113,13 +113,13 @@ it("preserves a literal heading when editing other seal settings", () => {
       set={set}
     />,
   );
-  fireEvent.change(screen.getByLabelText("Seal ink"), {
-    target: { value: "purple" },
-  });
+  fireEvent.click(screen.getByRole("button", { name: "Seal ink #6a338e" }));
   expect(set).toHaveBeenCalledWith({
     seal_text: "EXACT HEADING",
     seal_text_mode: "static",
-    seal_color: "purple",
+    seal_color: "black",
+    color_mode: "manual",
+    text_color: "#6a338e",
   });
 });
 

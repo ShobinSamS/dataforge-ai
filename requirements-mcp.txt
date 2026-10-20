@@ -1,0 +1,3 @@
+-r requirements.txt
+# Official MCP SDK; isolate the optional bridge from the web app's dependencies.
+mcp>=1.30,<2

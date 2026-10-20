@@ -6,10 +6,11 @@ from string import Formatter
 import numpy as np
 from PIL import Image,ImageDraw
 from .fonts import load_font,resolve_font_weight
+from .colors import choose_color,rgb,restore_ink_colors
 
 SHAPES=("ring","round","double_ring","oval","badge","square","rectangle","professional","form","dated","text","attestation","corporate","form_block","nameplate")
 FIELDS={"organization","department","name","title","city","state","year","date","reference","number"}
-PALETTE={"red":(161,32,48),"blue":(27,61,145),"green":(25,110,68),"purple":(99,48,133),"black":(35,36,40),"brown":(139,76,41)}
+PALETTE={"red":(161,32,48),"blue":(27,61,145),"green":(25,110,68),"purple":(99,48,133),"black":(0,0,0),"brown":(139,76,41)}
 
 
 def validate_seal_format(value):
@@ -96,6 +97,11 @@ def render_seal(size,content,rng,style):
     ink=(*PALETTE[color],255)
     other=rng.choice([key for key in PALETTE if key!=color]) if style.seal_color=='mixed' else color
     text_ink=(*PALETTE[other],255)
+    if style.color_mode in {"manual","random","mixed"}:
+        ink=(*rgb(choose_color(style,rng,"seal-border")),255)
+        text_ink=(*rgb(choose_color(style,rng,"seal-text")),255) if style.color_mode=="mixed" else ink
+        if style.color_mode=="mixed" and text_ink==ink and len(style.color_palette)>1:
+            text_ink=(*rgb(next(value for value in style.color_palette if rgb(value)!=ink[:3])),255)
     bold=style.font_weight=='bold' or (style.font_weight=='auto' and rng.random()<.65)
     face=resolve_font_weight(style.font_id,'bold' if bold else 'normal')
     stroke=max(scale,round(min(W,H)*rng.uniform(.007,.014)))
@@ -251,11 +257,14 @@ def render_seal(size,content,rng,style):
     if scale>1:layer=layer.resize(size,Image.Resampling.LANCZOS)
     info={'shape':shape,'border':border,'symbol':symbol,'ink':color,'text_ink':other,'content_mode':content.get('mode','static'),
           'top':content['top'],'bottom':content['bottom'],'inner_top':content.get('inner_top',''),'inner_bottom':content.get('inner_bottom',''),
-          'lines':lines,'text':seal_text({**content,'lines':lines}),'engine':'seal-v2',**layout_info}
+          'lines':lines,'text':seal_text({**content,'lines':lines}),'engine':'seal-v2',
+          'ink_color':'#%02x%02x%02x'%ink[:3],'text_ink_color':'#%02x%02x%02x'%text_ink[:3],**layout_info}
     if 'embedded_signature' in layout_info:info['text']+='\n'+layout_info['embedded_signature']['text']
     from .ink import apply_ink_opacity
     from .ink_finish import apply_ink_finish,transform_local_boxes
     layer,mask,finish=apply_ink_finish(layer,rng,style,"seal")
+    if style.color_mode in {"manual","random","mixed"}:
+        layer=restore_ink_colors(layer,[ink,text_ink])
     info=transform_local_boxes(info,finish,size)
     info['ink_finish']=finish
     layer,mask,opacity_info=apply_ink_opacity(layer,rng,style,"seal")

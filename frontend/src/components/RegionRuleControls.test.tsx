@@ -197,7 +197,7 @@ it("shows interpreted date bounds and format and permits explicit changes", asyn
 it("uploads an approved portrait and selects the pool without automatic internet access", async () => {
   mount({ kind: "portrait", rule: "" });
   const input = screen.getByLabelText(
-    "Add portrait to pool (up to 20)",
+    "Add images or ZIP to pool (up to 20)",
   ) as HTMLInputElement;
   expect(input.disabled).toBe(true);
   fireEvent.click(
@@ -206,7 +206,7 @@ it("uploads an approved portrait and selects the pool without automatic internet
     ),
   );
   expect(input.disabled).toBe(false);
-  vi.mocked(api).mockResolvedValue({ id: "a".repeat(32) });
+  vi.mocked(api).mockResolvedValue({ portraits: [{ id: "a".repeat(32) }] });
   fireEvent.change(input, {
     target: {
       files: [new File(["fixture"], "portrait.png", { type: "image/png" })],
@@ -218,13 +218,85 @@ it("uploads an approved portrait and selects the pool without automatic internet
   expect(value().rule_options.portrait_source).toBe("asset_pool");
   const call = vi
     .mocked(api)
-    .mock.calls.find(([path]) => path === "/portraits")!;
+    .mock.calls.find(([path]) => path === "/portraits/batch")!;
   expect((call[1]?.body as FormData).get("rights_confirmed")).toBe("true");
   expect(
     (screen.getByText("Fetch from configured provider") as HTMLButtonElement)
       .disabled,
   ).toBe(true);
   expect(post).not.toHaveBeenCalled();
+});
+
+it("appends a multi-image ZIP batch to the existing pool in one update", async () => {
+  mount({
+    kind: "portrait",
+    rule: "",
+    rule_options: {
+      ...defaultRuleOptions,
+      portrait_source: "asset_pool",
+      portrait_asset_ids: ["a".repeat(32)],
+    },
+  });
+  fireEvent.click(
+    screen.getByLabelText(
+      "I have permission to use these images in this dataset.",
+    ),
+  );
+  const input = screen.getByLabelText(
+    "Add images or ZIP to pool (up to 20)",
+  ) as HTMLInputElement;
+  expect(input.multiple).toBe(true);
+  expect(input.accept).toContain(".zip");
+  vi.mocked(api).mockResolvedValue({
+    portraits: [{ id: "b".repeat(32) }, { id: "c".repeat(32) }],
+  });
+  const files = [
+    new File(["zip"], "photos.zip", { type: "application/zip" }),
+    new File(["png"], "photo.png", { type: "image/png" }),
+  ];
+  fireEvent.change(input, { target: { files } });
+  await waitFor(() =>
+    expect(value().rule_options.portrait_asset_ids).toEqual([
+      "a".repeat(32),
+      "b".repeat(32),
+      "c".repeat(32),
+    ]),
+  );
+  const body = vi
+    .mocked(api)
+    .mock.calls.find(([path]) => path === "/portraits/batch")![1]
+    ?.body as FormData;
+  expect(body.getAll("files")).toHaveLength(2);
+  expect(body.get("max_count")).toBe("19");
+  expect(value().confirmed).toBe(false);
+  expect(input.value).toBe("");
+});
+
+it("leaves the selected pool unchanged when a batch is rejected", async () => {
+  mount({
+    kind: "portrait",
+    rule: "",
+    rule_options: {
+      ...defaultRuleOptions,
+      portrait_asset_ids: ["a".repeat(32)],
+    },
+  });
+  fireEvent.click(
+    screen.getByLabelText(
+      "I have permission to use these images in this dataset.",
+    ),
+  );
+  vi.mocked(api).mockRejectedValue(
+    new Error("Batch exceeds remaining image slots"),
+  );
+  fireEvent.change(
+    screen.getByLabelText("Add images or ZIP to pool (up to 20)"),
+    { target: { files: [new File(["zip"], "photos.zip")] } },
+  );
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "remaining image slots",
+  );
+  expect(value().rule_options.portrait_asset_ids).toEqual(["a".repeat(32)]);
 });
 
 it("explains unsupported rules without altering the selected region", async () => {
