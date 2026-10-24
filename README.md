@@ -4,12 +4,12 @@ A working local CPU proof of concept for synthetic document engineering. Review
 a template, replace selected regions with seeded fictional values and assets,
 generate images and mask-derived annotations, inspect validation, export a ZIP.
 This repository includes the document proof of concept and a synthetic text
-workflow. The full agent/diffusion platform remains later work.
+workflow. Optional local SD-Turbo asset previews are available; the full agent platform remains later work.
 
 **New here? Open the [How-to Catalog](HOW_TO_USE.md)** for feature-by-feature
 recipes, copyable inputs, controls, exports and troubleshooting.
 
-**MCP integration:** [44 typed tools and client setup](docs/mcp.md) expose
+**MCP integration:** [52 typed tools and client setup](docs/mcp.md) expose
 standalone signatures, stamps, seals, codes, text/portrait assets, templates,
 analysis and document/text dataset workflows over stdio or Streamable HTTP.
 Install the optional `requirements-mcp.txt`, keep DataForge running, then use
@@ -138,7 +138,8 @@ Faker names can coincide with real names.
 
 Presidio, general layout/borderless-table/signature detection, neural restoration,
 sample annotation editing, LangGraph, FAISS/RAG, tabular synthesis,
-AI image ingestion and diffusion are **not implemented**.
+AI image ingestion are **not implemented**.
+Local SD-Turbo portrait/seal/stamp artwork generation is optional; see [image generation](docs/image-generation.md).
 Their navigation pages state this explicitly. No agent/model activity is faked.
 Local Qwen is implemented for text generation through an existing Ollama service;
 it is optional and never downloads weights or silently falls back to a cloud model.

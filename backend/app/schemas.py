@@ -47,7 +47,7 @@ class RuleOptions(Contract):
     character_set: Literal["alnum","digits","upper","lower"] = "alnum"
     literal_text: str | None = Field(default=None,min_length=1,max_length=1000)
     portrait_source: Literal["illustration","asset_pool"] = "illustration"
-    portrait_asset_ids: list[str] = Field(default_factory=list,max_length=20)
+    portrait_asset_ids: list[str] = Field(default_factory=list,max_length=100)
     portrait_background: Literal["preserve","transparent","solid","random"] = "preserve"
     portrait_background_color: str = Field(default="#ffffff",pattern=r"^#[0-9a-fA-F]{6}$")
     portrait_background_palette: list[str] = Field(default_factory=lambda:["#ffffff","#d9e8ff","#ddd9ef","#ddebd9"],min_length=1,max_length=20)
@@ -89,6 +89,8 @@ class RuleOptions(Contract):
     seal_inner_top_text: str = Field(default="",max_length=160)
     seal_inner_bottom_text: str = Field(default="",max_length=160)
     seal_center_motif: Literal["none","shield","rosette","rays"] = "none"
+    seal_artwork_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+    seal_artwork_ids: list[str] = Field(default_factory=list,max_length=100)
     seal_field_writing: Literal["printed","cursive"] = "printed"
     seal_embedded_signature: bool = False
     seal_signer_name: str = Field(default="",max_length=100)
@@ -138,7 +140,7 @@ class RuleOptions(Contract):
         pattern_parts(value)
         return value
 
-    @field_validator("portrait_asset_ids")
+    @field_validator("portrait_asset_ids","seal_artwork_ids")
     @classmethod
     def asset_ids(cls, values):
         import re

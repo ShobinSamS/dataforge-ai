@@ -135,10 +135,10 @@ def _portrait(size, rng):
 
 def _art(size, style, rng, source=None, motif=None):
     w, h = size
-    if style in {"portrait", "revenue"}:
-        if source is not None:
-            gray = ImageOps.autocontrast(ImageOps.fit(source.convert("L"), size, method=Image.Resampling.LANCZOS))
-        else: gray = _portrait(size, rng)
+    if source is not None:
+        gray = ImageOps.autocontrast(ImageOps.fit(source.convert("L"), size, method=Image.Resampling.LANCZOS))
+    elif style in {"portrait", "revenue"}:
+        gray = _portrait(size, rng)
     else:
         gray = Image.new("L", size, 247); d = ImageDraw.Draw(gray)
         if style == "architecture":

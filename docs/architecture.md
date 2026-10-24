@@ -5,7 +5,7 @@ additive workflow; see [text architecture, audit and endpoint contracts](text-da
 Text jobs and existing document jobs share one CPU worker and a bounded FIFO
 queue, with separate SQL tables, record storage and export services. Later-phase
 text/Qwen references below describe the original roadmap; this extension delivers
-those text features without implementing LangGraph/RAG or diffusion.
+those text features without implementing LangGraph/RAG. Optional SD-Turbo asset previews run offline in a separate process, serialized through the shared CPU lock; see [image generation](image-generation.md).
 
 **MCP extension:** `backend/mcp_server.py` is an optional SDK adapter with 37
 typed tools and three resources over stdio/Streamable HTTP. It calls the existing

@@ -1,5 +1,7 @@
 # Local API contracts
 
+Optional offline SD-Turbo jobs and saved artwork: [image generation API](image-generation.md#api--mcp).
+
 Synthetic text endpoints are additive under `/api/text/*`; see the complete
 [text API and record/export contracts](text-datasets.md#api). Existing document
 contracts below remain backward compatible; document rules add optional fields.
@@ -107,7 +109,7 @@ work when action is absent. Explicit actions synchronize that boolean.
 `identifier_pattern` (A/9/X/- or literal text plus `{upper:N}`, `{lower:N}`,
 `{digits:N}`, `{alnum:N}`, `{year}`, `{month}`, `{day}`; no automatic prefix), optional
 `literal_text`, `portrait_source` (`illustration|asset_pool`) and
-`portrait_asset_ids` (up to 20 local approved asset IDs). Dates must be ordered
+`portrait_asset_ids` (up to 100 local approved/generated asset IDs). Dates must be ordered
 and within 1900–2100. `rule_resolved_hash` records the interpreted prompt.
 `character_length` (optional 1–128, or 1–500 for QR) and `character_set` (alnum/digits/upper/lower)
 control unpatterned values in text/identifier/QR/barcode fields. Patterns produce

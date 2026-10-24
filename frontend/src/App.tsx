@@ -77,6 +77,7 @@ import CanvasTools from "./components/CanvasTools";
 import Dashboard from "./pages/Dashboard";
 import TextStudio from "./pages/TextStudio";
 import McpTools from "./pages/McpTools";
+import DiffusionPanel from "./components/DiffusionPanel";
 import { Badge, Empty, Stat } from "./components/ui";
 import type { Page } from "./types";
 
@@ -163,6 +164,7 @@ export default function App() {
     templates.find((t) => t.id === templateId) || templates[0];
   const selectedJob = jobs.find((j) => j.id === jobId) || jobs[0];
   const [analysisPreview, setAnalysisPreview] = useState<Region[]>([]);
+  const [showImageBatch, setShowImageBatch] = useState(false);
   const [canvasPreview, setCanvasPreview] = useState("");
   const [qrPreflightState, setQrPreflightState] = useState<
     "checking" | "valid" | "invalid"
@@ -397,6 +399,10 @@ export default function App() {
     </select>
   );
   const title: Partial<Record<Page, [string, string]>> = {
+    "AI image studio": [
+      "AI image studio",
+      "Generate fictional portraits, seal emblems and stamp illustrations locally.",
+    ],
     Dashboard: [
       "Your data. New possibilities.",
       "Build useful training data, with privacy built in.",
@@ -653,6 +659,13 @@ export default function App() {
                 </span>
                 <button
                   className="btn"
+                  onClick={() => setShowImageBatch((value) => !value)}
+                >
+                  <FileImage size={15} />
+                  {showImageBatch ? "Close image generator" : "Generate images"}
+                </button>
+                <button
+                  className="btn"
                   disabled={!!busy}
                   onClick={() => demo()}
                 >
@@ -660,6 +673,16 @@ export default function App() {
                   Add fictional demo
                 </button>
               </div>
+              {showImageBatch && (
+                <section className="panel form-panel">
+                  <h2>Generate images for your templates</h2>
+                  <p className="field-hint">
+                    Create reusable portrait, seal or stamp image pools, then
+                    select the completed batch from a region's artwork controls.
+                  </p>
+                  <DiffusionPanel />
+                </section>
+              )}
               <div className="template-grid">
                 {templates
                   .filter((t) =>
@@ -1820,25 +1843,23 @@ export default function App() {
           )}
 
           {page === "MCP tools" && <McpTools />}
-          {["AI image studio", "Agent activity"].includes(page) && (
+          {page === "AI image studio" && (
+            <section className="panel form-panel">
+              <DiffusionPanel />
+            </section>
+          )}
+          {page === "Agent activity" && (
             <section className="panel extension-panel">
               <span className="extension-icon">
-                {page === "AI image studio" ? (
-                  <FileImage size={36} />
-                ) : (
-                  <Workflow size={36} />
-                )}
+                <Workflow size={36} />
               </span>
               <Badge>PLANNED EXTENSION</Badge>
-              <h2>
-                {page === "AI image studio"
-                  ? "Local diffusion requires a benchmark first"
-                  : "Shared local reasoning comes after the core pipeline"}
-              </h2>
+              <h2>Shared local reasoning comes after the core pipeline</h2>
               <p>
-                {page === "AI image studio"
-                  ? "Stable Diffusion 1.5 + LCM is not installed or enabled. The target laptop needs measured 256×256 and 512×512 latency, memory and quality results before enabling image inference."
-                  : "Qwen text generation is available in Text datasets through local Ollama. LangGraph agents and local RAG are not implemented. The architecture defines future planning nodes sharing one local model."}
+                Qwen text generation is available in Text datasets through local
+                Ollama. LangGraph agents and local RAG are not implemented. The
+                architecture defines future planning nodes sharing one local
+                model.
               </p>
               <button
                 className="btn primary"

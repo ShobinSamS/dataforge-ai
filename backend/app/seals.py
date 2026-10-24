@@ -82,10 +82,14 @@ def _star(draw,cx,cy,radius,ink,points=5):
     draw.polygon(vertices,fill=ink)
 
 
-def render_seal(size,content,rng,style):
+def render_seal(size,content,rng,style,emblem=None):
     w,h=size;scale=3 if w*h<400_000 else 1;W,H=w*scale,h*scale
     layer=Image.new('RGBA',(W,H));draw=ImageDraw.Draw(layer)
     shape=style.seal_style
+    if emblem is not None:
+        if shape not in {'random','ring','round','double_ring','oval','badge','corporate'}:
+            raise ValueError('Center artwork requires a circular or oval seal shape')
+        if shape=='random':shape='corporate'
     if shape=='random':
         choices=('rectangle','professional','form','dated','text','oval','form_block','nameplate') if w/h>1.5 else ('ring','round','double_ring','badge','square','oval','corporate','attestation')
         shape='corporate' if content.get('inner_top') or content.get('inner_bottom') else rng.choice(choices)
@@ -215,10 +219,17 @@ def render_seal(size,content,rng,style):
             elif monogram:lines.insert(0,monogram)
         count=len(lines);step=ry*(.52 if inner_arcs else .68)/max(1,count)
         motif=style.seal_center_motif if shape=='corporate' else 'none'
+        if emblem is not None:motif='artwork'
         if motif!='none':
             step=ry*.23/max(1,count)
             mx,my=cx,cy-ry*.16;r=min(rx,ry)*.18
-            if motif=='shield':
+            if motif=='artwork':
+                from PIL import ImageOps,ImageChops
+                tile=ImageOps.contain(emblem.convert('RGBA'),(max(1,round(r*2.5)),max(1,round(r*2))))
+                alpha=ImageChops.multiply(ImageOps.invert(ImageOps.grayscale(tile)),tile.getchannel('A'))
+                colored=Image.new('RGBA',tile.size,ink);colored.putalpha(alpha)
+                layer.alpha_composite(colored,(round(mx-tile.width/2),round(my-tile.height/2)))
+            elif motif=='shield':
                 draw.line([(mx-r,my-r),(mx+r,my-r),(mx+r*.9,my+r*.3),(mx,my+r),(mx-r*.9,my+r*.3),(mx-r,my-r)],fill=ink,width=max(scale,stroke//2))
                 for dx,dy in ((0,-.45),(-.35,.1),(.35,.1)):_star(draw,mx+r*dx,my+r*dy,r*.18,ink)
             elif motif=='rosette':_star(draw,mx,my,r,ink,12)

@@ -1,0 +1,3 @@
+# Optional. Install after requirements.txt and requirements-vision.txt (CPU torch).
+diffusers==0.35.2
+accelerate==1.12.0

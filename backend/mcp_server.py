@@ -22,6 +22,7 @@ from .app.document_analysis import AnalysisRequest, SourceTable
 from .app.document_rules import InterpretRuleRequest
 from .app.schemas import Region
 from .app.canvas import CanvasRequest,CanvasPreview
+from .app.diffusion import DiffusionRequest
 
 ROOT = Path(__file__).resolve().parents[1]
 Id = Annotated[str, Field(min_length=1, max_length=80, pattern=r"^[a-zA-Z0-9_-]+$")]
@@ -392,6 +393,46 @@ def create_server(api_url="http://127.0.0.1:8000", *, port=8001, client=None):
         if not confirm_delete: raise ValueError("Set confirm_delete=true only when deletion is intended")
         return await bridge.json("DELETE", job_path(dataset, job_id))
 
+    @mcp.tool(annotations=READ)
+    async def image_generation_status() -> dict[str, Any]:
+        """Check optional SD-Turbo installation and CPU memory. Never downloads models."""
+        return await bridge.json("GET", "/api/diffusion/capabilities")
+
+    @mcp.tool(annotations=WRITE)
+    async def generate_image(request: DiffusionRequest) -> dict[str, Any]:
+        """Queue 1–100 offline 512x512 images via request.count. Set prompt_mode=qwen to turn the prompt brief into a fresh local-Qwen description per image; prompt_seed optionally fixes variation planning. Manual mode uses exact text. Distinct image seeds and recorded prompts support reproduction. Poll get_image_generation for progress and ZIP URLs."""
+        return await bridge.json("POST", "/api/diffusion/jobs", request)
+
+    @mcp.tool(annotations=READ)
+    async def list_image_generations() -> list[dict[str, Any]]:
+        """List up to 100 recent diffusion previews and saved asset IDs."""
+        return await bridge.json("GET", "/api/diffusion/jobs")
+
+    @mcp.tool(annotations=READ)
+    async def get_image_generation(job_id: Id) -> dict[str, Any]:
+        """Get queued/running/completed/failed/cancelled status and preview URLs with CPU benchmark metrics."""
+        return await bridge.json("GET", f"/api/diffusion/jobs/{job_id}")
+
+    @mcp.tool(annotations=WRITE)
+    async def cancel_image_generation(job_id: Id) -> dict[str, Any]:
+        """Cancel an owned diffusion job and release its worker process."""
+        return await bridge.json("POST", f"/api/diffusion/jobs/{job_id}/cancel")
+
+    @mcp.tool(annotations=WRITE)
+    async def save_generated_image(job_id: Id, index: Annotated[int, Field(ge=0,le=99)] | None = None) -> dict[str, Any]:
+        """Save one preview or all completed batch images. Optionally select a zero-based batch index. Use asset IDs in portrait_asset_ids for portraits/stamps or seal_artwork_ids for circular seal pools. Repeated saves return the same assets."""
+        return await bridge.json("POST", f"/api/diffusion/jobs/{job_id}/save",params={} if index is None else {'index':index})
+
+    @mcp.tool(annotations=WRITE)
+    async def resume_image_generation(job_id: Id) -> dict[str, Any]:
+        """Resume a failed/cancelled image batch, preserving completed images and retrying only unfinished indexes."""
+        return await bridge.json("POST",f"/api/diffusion/jobs/{job_id}/resume")
+
+    @mcp.tool(annotations=WRITE)
+    async def preview_image_prompt(request: DiffusionRequest) -> dict[str, Any]:
+        """Ask local Qwen for one sample image description from request.prompt as a brief. Generates no image and saves no job. Preview is illustrative; normal runs create new variations unless prompt_seed is fixed."""
+        return await bridge.json("POST",'/api/diffusion/prompts/preview',request)
+
     @mcp.resource("dataforge://guide", mime_type="text/markdown")
     def guide() -> str:
         return (ROOT/"docs/mcp.md").read_text(encoding="utf-8")
@@ -399,7 +440,7 @@ def create_server(api_url="http://127.0.0.1:8000", *, port=8001, client=None):
     @mcp.resource("dataforge://schemas", mime_type="application/json")
     def schemas() -> str:
         return json.dumps({model.__name__: model.model_json_schema() for model in
-            (AssetRequest, RuleOptions, Region, Review, GenerationConfig, TextConfig, AnalysisRequest, SourceTable, InterpretRuleRequest, CanvasRequest, CanvasPreview)})
+            (AssetRequest, RuleOptions, Region, Review, GenerationConfig, TextConfig, AnalysisRequest, SourceTable, InterpretRuleRequest, CanvasRequest, CanvasPreview, DiffusionRequest)})
 
     @mcp.resource("dataforge://templates", mime_type="application/json")
     async def templates_resource() -> str:

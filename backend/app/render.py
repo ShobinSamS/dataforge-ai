@@ -15,6 +15,7 @@ from .fonts import load_font, native_font_id, resolve_font_weight, cursive_font_
 from .restoration import restore_region
 from .signatures import render_signature
 from .seals import plan_seal_content,seal_text,render_seal
+from .seal_artwork import load_emblem
 from .stamps import plan_stamp, render_stamp, plan_rubber_stamp, render_rubber_stamp, stamp_artwork
 from .colors import choose_color
 from .addresses import generate_address
@@ -215,7 +216,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
                 literal=r.rule[8:] if r.rule.startswith("literal:") else None
                 if r.kind=="stamp":
                     content=plan_stamp(style,seed,r.id,literal)
-                    source,provenance=stamp_artwork(style,asset_root,seed) if content["style"] in {"portrait","revenue"} else (None,{})
+                    source,provenance=stamp_artwork(style,asset_root,seed)
                     layer,mask,stamp_details[r.id]=render_stamp((w,h),content,rng,style,source)
                     if provenance: asset_provenance[r.id]=provenance
                 else:
@@ -225,7 +226,9 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
             elif r.kind=="seal":
                 literal=r.rule[8:] if r.rule.startswith("literal:") else None
                 content=plan_seal_content(style,seed,r.id,literal)
-                layer,mask,seal_details[r.id]=render_seal((w,h),content,rng,style)
+                emblem,provenance=load_emblem(asset_root,style.seal_artwork_id,style.seal_artwork_ids,seed)
+                layer,mask,seal_details[r.id]=render_seal((w,h),content,rng,style,emblem)
+                if provenance:asset_provenance[r.id]=provenance
                 values[r.id]=seal_details[r.id]["text"]
             else:
                 layer, mask = asset(r.kind, (w,h), values[r.id], rng,style,config.qr_padding)

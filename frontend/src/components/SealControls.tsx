@@ -122,12 +122,34 @@ export default function SealControls({
             "form_block",
             "nameplate",
           ].map((v) => (
-            <option key={v} value={v}>
+            <option
+              key={v}
+              value={v}
+              disabled={
+                (!!options.seal_artwork_id ||
+                  !!options.seal_artwork_ids?.length) &&
+                ![
+                  "random",
+                  "ring",
+                  "round",
+                  "double_ring",
+                  "oval",
+                  "badge",
+                  "corporate",
+                ].includes(v)
+              }
+            >
               {v.replaceAll("_", " ")}
             </option>
           ))}
         </select>
       </label>
+      {(options.seal_artwork_id || !!options.seal_artwork_ids?.length) && (
+        <p className="field-hint">
+          Center artwork uses circular or oval layouts. Remove the selected
+          center artwork to use a block seal.
+        </p>
+      )}
       <ColorControls
         options={colorOptions}
         set={change}

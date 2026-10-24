@@ -18,6 +18,7 @@ from .portraits import illustration, portrait_metadata, portrait_background
 from .stamps import plan_stamp, render_stamp, plan_rubber_stamp, render_rubber_stamp, stamp_artwork
 from .colors import choose_color
 from .addresses import generate_address
+from .seal_artwork import load_emblem
 from PIL import Image, ImageOps
 
 
@@ -67,10 +68,12 @@ def generate_asset(body: AssetRequest, root: Path):
             layer, mask, details = render_signature(size, value, rng, options)
         elif kind == "seal":
             content = plan_seal_content(options, body.seed, "asset", literal=body.value)
-            layer, mask, details = render_seal(size, content, rng, options)
+            emblem,provenance=load_emblem(root,options.seal_artwork_id,options.seal_artwork_ids,body.seed)
+            layer, mask, details = render_seal(size, content, rng, options,emblem)
+            if provenance:details['asset_provenance']=provenance
         elif kind == "stamp":
             content=plan_stamp(options,body.seed,"asset",body.value)
-            source,provenance=stamp_artwork(options,root,body.seed) if content["style"] in {"portrait","revenue"} else (None,{})
+            source,provenance=stamp_artwork(options,root,body.seed)
             layer,mask,details=render_stamp(size,content,rng,options,source)
             if provenance: details["asset_provenance"]=provenance
         elif kind == "rubber_stamp":

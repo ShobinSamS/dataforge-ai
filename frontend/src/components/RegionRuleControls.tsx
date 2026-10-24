@@ -6,6 +6,7 @@ import FontControls from "./FontControls";
 import AssetStyleControls from "./AssetStyleControls";
 import ColorControls from "./ColorControls";
 import AddressControls from "./AddressControls";
+import DiffusionPanel from "./DiffusionPanel";
 
 export const defaultRuleOptions: RuleOptions = {
   date_format: "yyyy-mm-dd",
@@ -110,13 +111,18 @@ export default function RegionRuleControls({
       );
     });
   const addPortraits = (records: Portrait[]) => {
-    if (options.portrait_asset_ids.length + records.length > 20)
-      throw new Error("A pool supports up to 20 portraits.");
+    const unique = records.filter(
+      (record) => !options.portrait_asset_ids.includes(record.id),
+    );
+    if (options.portrait_asset_ids.length + unique.length > 100)
+      throw new Error(
+        "A pool supports up to 100 images. Remove some images before adding this batch.",
+      );
     setOptions({
       portrait_source: "asset_pool",
       portrait_asset_ids: [
         ...options.portrait_asset_ids,
-        ...records.map((record) => record.id),
+        ...unique.map((record) => record.id),
       ],
     });
     setMessage(
@@ -423,6 +429,67 @@ export default function RegionRuleControls({
       {action === "replace" && options.literal_text !== null && (
         <p className="field-hint">Exact text: {options.literal_text}</p>
       )}
+      {action === "replace" &&
+        ["portrait", "seal", "stamp"].includes(field.kind) && (
+          <details>
+            <summary>Generate or select Stable Diffusion artwork</summary>
+            <DiffusionPanel
+              key={`${field.id}:${field.kind}`}
+              kind={
+                field.kind === "portrait"
+                  ? "portrait"
+                  : field.kind === "seal"
+                    ? "seal_artwork"
+                    : "stamp_artwork"
+              }
+              onUse={(asset) => {
+                if (field.kind === "seal")
+                  setOptions({
+                    seal_artwork_id: asset.id,
+                    seal_artwork_ids: [],
+                    seal_style: "corporate",
+                  });
+                else if (!options.portrait_asset_ids.includes(asset.id))
+                  addPortraits([asset]);
+              }}
+              onUseMany={(assets) => {
+                if (field.kind === "seal")
+                  setOptions({
+                    seal_artwork_id: null,
+                    seal_artwork_ids: assets.map((asset) => asset.id),
+                    seal_style: "corporate",
+                  });
+                else addPortraits(assets);
+              }}
+            />
+          </details>
+        )}
+      {action === "replace" &&
+        field.kind === "seal" &&
+        (options.seal_artwork_id || !!options.seal_artwork_ids?.length) && (
+          <div>
+            <img
+              src={`/api/portraits/${options.seal_artwork_id || options.seal_artwork_ids?.[0]}/image`}
+              alt="Selected seal center artwork"
+              style={{ width: 96 }}
+            />
+            <button
+              type="button"
+              className="btn"
+              onClick={() =>
+                setOptions({ seal_artwork_id: null, seal_artwork_ids: [] })
+              }
+            >
+              Remove seal center artwork
+            </button>
+            {!!options.seal_artwork_ids?.length && (
+              <p className="field-hint">
+                {options.seal_artwork_ids.length} seal emblems in this pool.
+                Dataset samples select an emblem using their seed.
+              </p>
+            )}
+          </div>
+        )}
       {action === "replace" && ["portrait", "stamp"].includes(field.kind) && (
         <>
           {field.kind === "portrait" && (
@@ -501,7 +568,7 @@ export default function RegionRuleControls({
           )}
           <label>
             {field.kind === "stamp"
-              ? "Stamp portrait artwork source"
+              ? "Stamp artwork source"
               : "Portrait source"}
             <select
               value={options.portrait_source}
@@ -574,12 +641,12 @@ export default function RegionRuleControls({
             />
           </label>
           <label>
-            Add images or ZIP to pool (up to 20)
+            Add images or ZIP to pool (up to 20 per upload)
             <input
               type="file"
               accept="image/png,image/jpeg,image/webp,.zip,application/zip"
               multiple
-              disabled={!rights || options.portrait_asset_ids.length >= 20}
+              disabled={!rights || options.portrait_asset_ids.length >= 100}
               onChange={(e) => {
                 const files = Array.from(e.target.files || []);
                 e.target.value = "";
@@ -589,7 +656,9 @@ export default function RegionRuleControls({
                     for (const file of files) form.append("files", file);
                     form.append(
                       "max_count",
-                      String(20 - options.portrait_asset_ids.length),
+                      String(
+                        Math.min(20, 100 - options.portrait_asset_ids.length),
+                      ),
                     );
                     form.append("rights_confirmed", "true");
                     form.append(
@@ -609,7 +678,7 @@ export default function RegionRuleControls({
             />
           </label>
           <p className="field-hint">
-            {options.portrait_asset_ids.length}/20 selected. Select multiple
+            {options.portrait_asset_ids.length}/100 selected. Select multiple
             PNG, JPEG or WebP images, or a ZIP containing images. Each image: up
             to 8 MB / 8 megapixels. Combined upload and uncompressed images: up
             to 40 MB. Imports add to the existing pool; invalid or oversized
@@ -643,7 +712,7 @@ export default function RegionRuleControls({
                 !capabilities.data?.online_configured ||
                 !online ||
                 !rights ||
-                options.portrait_asset_ids.length >= 20
+                options.portrait_asset_ids.length >= 100
               }
               onClick={() =>
                 run(async () =>

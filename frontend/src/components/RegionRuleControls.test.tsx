@@ -197,7 +197,7 @@ it("shows interpreted date bounds and format and permits explicit changes", asyn
 it("uploads an approved portrait and selects the pool without automatic internet access", async () => {
   mount({ kind: "portrait", rule: "" });
   const input = screen.getByLabelText(
-    "Add images or ZIP to pool (up to 20)",
+    "Add images or ZIP to pool (up to 20 per upload)",
   ) as HTMLInputElement;
   expect(input.disabled).toBe(true);
   fireEvent.click(
@@ -243,7 +243,7 @@ it("appends a multi-image ZIP batch to the existing pool in one update", async (
     ),
   );
   const input = screen.getByLabelText(
-    "Add images or ZIP to pool (up to 20)",
+    "Add images or ZIP to pool (up to 20 per upload)",
   ) as HTMLInputElement;
   expect(input.multiple).toBe(true);
   expect(input.accept).toContain(".zip");
@@ -267,7 +267,7 @@ it("appends a multi-image ZIP batch to the existing pool in one update", async (
     .mock.calls.find(([path]) => path === "/portraits/batch")![1]
     ?.body as FormData;
   expect(body.getAll("files")).toHaveLength(2);
-  expect(body.get("max_count")).toBe("19");
+  expect(body.get("max_count")).toBe("20");
   expect(value().confirmed).toBe(false);
   expect(input.value).toBe("");
 });
@@ -290,7 +290,7 @@ it("leaves the selected pool unchanged when a batch is rejected", async () => {
     new Error("Batch exceeds remaining image slots"),
   );
   fireEvent.change(
-    screen.getByLabelText("Add images or ZIP to pool (up to 20)"),
+    screen.getByLabelText("Add images or ZIP to pool (up to 20 per upload)"),
     { target: { files: [new File(["zip"], "photos.zip")] } },
   );
   expect((await screen.findByRole("alert")).textContent).toContain(

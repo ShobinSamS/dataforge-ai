@@ -16,14 +16,15 @@ Internet access; runtime can remain offline after packages/models are provisione
 | Qwen3-1.7B GGUF | Optional loopback Ollama text generation, bounded structured batches, CPU, no cloud fallback | [Official GGUF, Apache-2.0](https://huggingface.co/Qwen/Qwen3-1.7B-GGUF), [Ollama tag](https://ollama.com/library/qwen3%3A1.7b) | Real local Q4_K_M inference exercised for text tasks; no general accuracy or latency guarantee |
 | TrOCR-Small printed / handwritten | Optional local CPU recognition of English line/cell crops, not page layout or signatures | [Microsoft handwritten model card](https://huggingface.co/microsoft/trocr-small-handwritten), [printed model](https://huggingface.co/microsoft/trocr-small-printed) | Both installed and exercised on synthetic font lines; handwritten punctuation error observed. No Indian handwriting benchmark; see document-analysis.md |
 | Presidio | Planned in addition to regex; local NLP model must also be provisioned | [Official analyzer docs](https://microsoft.github.io/presidio/analyzer/) | Not integrated; regex is not equivalent semantic coverage |
-| SD 1.5 / LCM / OpenVINO | Disabled; isolated CPU process benchmark before integration | [OpenVINO model card](https://huggingface.co/OpenVINO/stable-diffusion-v1-5-fp16-ov): CreativeML Open RAIL-M, OpenVINO >=2025.0 and Optimum Intel >=1.22. [LCM-LoRA paper](https://arxiv.org/abs/2311.05556) | No hardware latency, RAM or quality claim; no diffusion backend shipped |
+| SD-Turbo / Diffusers | Optional 512×512 local CPU image previews; 1–4 steps, separate process sharing CPU lock | [Official model and license](https://huggingface.co/stabilityai/sd-turbo), Diffusers 0.35.2, Accelerate 1.12.0 | Lifecycle and asset/export integration tested; live measurements appear per preview. See [image generation](image-generation.md). SDXL/LCM/OpenVINO are not integrated |
 | MCP Python SDK | Optional v1 compatibility line `mcp>=1.30,<2`; separate requirements-mcp.txt | [Official SDK](https://github.com/modelcontextprotocol/python-sdk), MIT | Stdio + Streamable HTTP tool discovery, native images, uploads, reviews, jobs and exports tested; see mcp.md |
 | LangGraph / FAISS | Documented phase-3 design | Recheck exact pinned dependencies and their transitive licenses during that phase | Not integrated |
 
 The base workflow does not need PyTorch, PaddlePaddle, an LLM server, Redis or
-diffusion. Installing all AI dependencies into one environment is deliberately
-avoided. Paddle and optional generative environments need independent locked
-dependencies and measured working sets before sharing memory with generation.
+diffusion. The optional diffusion adapter reuses CPU PyTorch/Transformers from
+the vision environment, with separate optional requirements; it loads weights
+only in an owned subprocess. Paddle environments remain independent. Preview
+metrics report observed model-load/inference time and peak worker memory.
 
 Faker names are invented samples, but may coincide with real names. Addresses
 use a deliberately fictional locality, emails use example.invalid, identifiers

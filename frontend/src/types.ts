@@ -93,6 +93,8 @@ export interface RuleOptions {
   ink_opacity_max?: number;
   ink_finish?: "clean" | "natural" | "worn";
   ink_irregularity?: number;
+  seal_artwork_id?: string | null;
+  seal_artwork_ids?: string[];
   seal_style?:
     | "random"
     | "ring"

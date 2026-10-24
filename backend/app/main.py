@@ -44,6 +44,8 @@ from .asset_api import asset_router
 from .stamps import plan_stamp, plan_rubber_stamp
 from .canvas import CanvasRequest, CanvasPreview, create_canvas, canvas_info
 from .addresses import country_catalog,generate_address
+from .diffusion import DiffusionJobs, diffusion_router, capabilities as diffusion_capabilities
+from .seal_artwork import load_emblem
 
 
 class OnlinePortraitRequest(Contract):
@@ -92,12 +94,14 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     root.mkdir(parents=True,exist_ok=True)
     engine, sessions = connect(database_url or settings.database_url)
     worker = Worker(sessions,root)
+    image_jobs = DiffusionJobs(root)
 
     @asynccontextmanager
     async def lifespan(app):
         if start_worker:
             worker.start()
         yield
+        image_jobs.close()
         if start_worker:
             worker.close()
         engine.dispose()
@@ -106,10 +110,12 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
                   description="Local CPU dataset workspace. No cloud inference.")
     app.state.sessions = sessions
     app.state.worker = worker
+    app.state.image_jobs = image_jobs
     app.include_router(text_router(sessions,root,queue_lock))
     app.include_router(dataset_delete_router(sessions,root,queue_lock))
     app.include_router(analysis_router(sessions,root))
     app.include_router(asset_router(root))
+    app.include_router(diffusion_router(image_jobs))
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=["localhost","127.0.0.1","testserver"])
     origins = ["http://localhost:5173","http://127.0.0.1:5173","http://localhost:8000","http://127.0.0.1:8000"]
     origins.extend([f"http://localhost:{settings.api_port}",f"http://127.0.0.1:{settings.api_port}"])
@@ -144,9 +150,13 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
 
     def check_assets(regions):
         for r in regions:
+            if region_action(r)=="replace" and r.kind=="seal" and r.rule_options.seal_artwork_id:
+                portrait_metadata(root,r.rule_options.seal_artwork_id)
+            if region_action(r)=="replace" and r.kind=="seal":
+                for id_ in r.rule_options.seal_artwork_ids:portrait_metadata(root,id_)
             if region_action(r)=="replace" and r.kind not in {"portrait","signature","seal","stamp","rubber_stamp","qr","barcode","drawing"}:
                 load_font(12,r.rule_options.font_id)
-            if region_action(r)=="replace" and (r.kind=="portrait" or (r.kind=="stamp" and r.rule_options.stamp_style in {"random","portrait","revenue"})) and r.rule_options.portrait_source=="asset_pool":
+            if region_action(r)=="replace" and r.kind in {"portrait","stamp"} and r.rule_options.portrait_source=="asset_pool":
                 if not r.rule_options.portrait_asset_ids: raise ValueError("Select at least one approved portrait image")
                 for id_ in r.rule_options.portrait_asset_ids: portrait_metadata(root,id_)
 
@@ -292,7 +302,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
                                 "blank_canvas":True,"transparent_canvas":True,"freehand_drawing":True,"photo_backgrounds":True,
                                 "country_addresses":True,
                                 "visual_region_proposals":True,"synthetic_stamps":True,
-                                "text_datasets":True,"llm":True,"local_llm_adapter":True,"document_rule_planner":True,"portrait_fields":True,"erase_regions":True,"font_matching":True,"custom_pattern_templates":True,"qr_controls":True,"pii_suggestions":True,"ruled_table_extraction":True,"transparent_codes":True,"trocr":any(vision_capabilities()["models"].values()),"diffusion":False,"presidio":False,"mcp":True,"rag":False},
+                                "text_datasets":True,"llm":True,"local_llm_adapter":True,"document_rule_planner":True,"portrait_fields":True,"erase_regions":True,"font_matching":True,"custom_pattern_templates":True,"qr_controls":True,"pii_suggestions":True,"ruled_table_extraction":True,"transparent_codes":True,"trocr":any(vision_capabilities()["models"].values()),"diffusion":diffusion_capabilities(root)["ready"],"diffusion_adapter":True,"presidio":False,"mcp":True,"rag":False},
                 "privacy":"Template images and OCR stay local. Only explicit provider portrait downloads use the internet. Detection requires manual review."}
 
     @app.get("/api/templates")
@@ -444,8 +454,10 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     @app.post("/api/seals/preview")
     def seal_preview(body: SealPreviewRequest):
         content=plan_seal_content(body.options,body.seed,body.region_id,literal=body.literal)
+        emblem,provenance=load_emblem(root,body.options.seal_artwork_id,body.options.seal_artwork_ids,body.seed)
         with CPU_LOCK:
-            layer,_,metadata=render_seal((body.width,body.height),content,random.Random(body.seed),body.options)
+            layer,_,metadata=render_seal((body.width,body.height),content,random.Random(body.seed),body.options,emblem)
+            if provenance: metadata['asset_provenance']=provenance
             buffer=io.BytesIO();layer.save(buffer,format="PNG")
         return {"image":"data:image/png;base64,"+base64.b64encode(buffer.getvalue()).decode(),"metadata":metadata}
 

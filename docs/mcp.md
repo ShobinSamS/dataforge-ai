@@ -1,5 +1,9 @@
 # DataForge AI MCP server
 
+The catalog includes 52 tools. Eight optional local image-generation tools provide
+setup status, generation, listing, polling, cancellation and saving; see
+[image generation](image-generation.md#api--mcp). No weights are downloaded by MCP.
+
 Connect a standard MCP client to DataForge's signatures, seals, paper postage/revenue stamps, rubber stamps,
 QR codes, Code128 barcodes, text/portrait assets, templates, document analysis,
 document datasets and synthetic text datasets. Uses the

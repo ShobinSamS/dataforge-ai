@@ -81,9 +81,9 @@ DataForge does not install/start Ollama or download model weights automatically.
 | Job monitor | Monitor document generation jobs | Available; text jobs appear inside Text datasets |
 | Export & history | Export document datasets and retrieve previous ZIPs | Available; text exports have their own section |
 | Settings | View runtime configuration and capability status | Available; edit `.env` to change server settings |
-| AI image studio | Read diffusion integration status | Planned; diffusion is not enabled |
+| AI image studio | Generate local SD-Turbo portraits, seal emblems and stamp artwork | Optional model setup; [guide](docs/image-generation.md) |
 | Agent activity | Read agent integration status | Planned; Qwen text generation works independently |
-| MCP tools | Connect standard clients to 44 typed generation/template/dataset tools | Optional stdio / Streamable HTTP server; see [MCP setup](docs/mcp.md) |
+| MCP tools | Connect standard clients to 52 typed generation/template/dataset tools | Optional stdio / Streamable HTTP server; see [MCP setup](docs/mcp.md) |
 
 **Choose an engine for text:**
 
@@ -260,7 +260,7 @@ For photographic output, use **Approved photo / image pool**, confirm permission
 and upload images you can use in the dataset (including externally generated
 fictional faces). **Add images or ZIP to pool** accepts multiple PNG, JPEG or WebP
 images at once, or a ZIP containing them (folders are allowed). New images append
-to the selected pool, up to 20 total. Combined uploaded and expanded image bytes
+to the selected pool, up to 100 total (20 per upload). Combined uploaded and expanded image bytes
 are each limited to 40 MB. A corrupt, unsupported or oversized batch imports
 nothing. Each sample selects from the pool using its
 seed and crops the image to fill the rectangle. Upload limits are 8 MB, 8 MP and
@@ -664,7 +664,7 @@ reports intentionally retain `training_ready=false`.
 | Generated character length / set | Documents | 1–128 for text/identifier/barcode; 1–500 for QR; no pattern required |
 | QR padding / payload / required | Documents | 0–8 modules, 1–500 payload characters, optional required-region check |
 | Font and appearance | Documents | Automatic source matching, family, bold/regular, pixel size, color and background cleanup |
-| Portrait source | Documents | Offline illustration or approved image pool (up to 20) |
+| Portrait source | Documents | Offline illustration or approved/generated image pool (up to 100) |
 | Blur / rotation / noise | Documents | Appearance variation; geometric transforms also update masks |
 
 Server settings live in `.env`; copy `.env.example` if needed and restart the

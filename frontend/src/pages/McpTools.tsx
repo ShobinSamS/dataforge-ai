@@ -58,7 +58,7 @@ export default function McpTools() {
       </section>
       <section className="panel form-panel">
         <div className="panel-title">
-          <h2>44 tools · 3 resources</h2>
+          <h2>52 tools · 3 resources</h2>
           <Badge>STDIO / HTTP</Badge>
         </div>
         {[
