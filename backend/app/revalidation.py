@@ -35,7 +35,7 @@ def revalidate_job(sessions,id_):
             with Image.open(path) as opened:
                 image=opened.convert("RGBA" if opened.mode=="RGBA" else "RGB")
             result={"image":image,"width":image.width,"height":image.height,"annotations":sample.annotations,"errors":errors}
-            report=validate(result,folder,expected)
+            report=validate(result,folder,len(sample.annotations) if metadata.get('revision',0)>0 else expected)
             metadata["validation"]=report
             prepared.append((sample,report,folder/"metadata.json",json.dumps(metadata,indent=2)))
         # Do all image/mask checks before committing any updated reports.

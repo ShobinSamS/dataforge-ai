@@ -1,6 +1,6 @@
 # DataForge AI MCP server
 
-The catalog includes 52 tools. Eight optional local image-generation tools provide
+The catalog includes 64 tools. Eight optional local image-generation tools provide
 setup status, generation, listing, polling, cancellation and saving; see
 [image generation](image-generation.md#api--mcp). No weights are downloaded by MCP.
 
@@ -256,3 +256,7 @@ is additive; existing signature/seal previews and document rendering are unchang
 MCP is served on its own port/process. `/api/assets/generate` is a REST endpoint;
 it is not itself the MCP transport. Tool calls use the running backend's data
 directory and single worker, and failed mutating calls are never auto-retried.
+
+Document lab adds `create_document_packs`, `list_document_pack_runs`, `get_document_pack_run`, `cancel_document_pack_run`, `resume_document_pack_run`, `get_document_pack_page`, `edit_document_pack_page`, `regenerate_document_pack`, `read_sample_annotations`, `edit_sample_annotations` and `regenerate_document_sample`. See [Document lab](document-lab.md). Signature artwork is available through `generate_image` with `kind=signature_artwork`; transcription is unverified.
+
+`recolor_generated_ink(job_id, appearance)` creates a color variant without model inference. `generate_image` additionally accepts `kind=text_seal` with native `seal_options`, or guided `signature_artwork` with `signature_text`, `signature_style` and `ink`. The catalog has 64 tools.

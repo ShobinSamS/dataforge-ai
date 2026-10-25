@@ -32,6 +32,7 @@ export const fieldTypes: FieldType[] = [
   "drawing",
 ];
 export interface RuleOptions {
+  signature_artwork_ids?: string[];
   address_country?: string;
   address_format?: string;
   date_format:
@@ -58,7 +59,7 @@ export interface RuleOptions {
   background_mode?: "auto" | "solid";
   background_color?: string;
   cleanup_mode?: "full_region" | "ink_only";
-  writing_style?: "printed" | "cursive";
+  writing_style?: "printed" | "cursive" | "handwritten";
   code_background?: "transparent" | "white";
   signature_style?:
     | "mixed"
@@ -220,6 +221,17 @@ export interface Template {
   } | null;
 }
 export interface Config {
+  capture_profile?:
+    "none" | "phone" | "scanner" | "photocopy" | "cropped_scan" | "mixed";
+  capture_strength?: number;
+  field_links?: {
+    target: string;
+    sources: string[];
+    rule: "copy" | "age" | "after_date" | "sum";
+    separator: string;
+    days: number;
+    as_of: string;
+  }[];
   template_id: string;
   name: string;
   count: number;
@@ -314,6 +326,7 @@ export interface Export {
 }
 
 export type Page =
+  | "Document lab"
   | "Dashboard"
   | "Template library"
   | "Template editor"

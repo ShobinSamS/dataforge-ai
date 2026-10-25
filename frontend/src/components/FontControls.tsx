@@ -103,52 +103,60 @@ export default function FontControls({
           />
         </label>
       )}
-      <label>
-        Source text for font matching
-        <input
-          maxLength={200}
-          value={field.text}
-          placeholder="Text visible in the selected source region"
-          onChange={(e) => onChange({ text: e.target.value, confirmed: false })}
-        />
-      </label>
-      <button
-        type="button"
-        className="btn"
-        disabled={busy || !templateId}
-        onClick={async () => {
-          setBusy(true);
-          setMessage("");
-          try {
-            const result = await post<{
-              region: Region;
-              match: { label: string; similarity: number; warning: string };
-            }>(`/templates/${templateId}/font-match`, { region: field });
-            onChange(result.region);
-            setMessage(
-              `${result.match.label} · shape similarity ${Math.round(result.match.similarity * 100)}%. ${result.match.warning}`,
-            );
-          } catch (e) {
-            setMessage(e instanceof Error ? e.message : "Font matching failed");
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {busy ? "Matching…" : "Match source font"}
-      </button>
-      <p className="field-hint">
-        Automatic font matching follows source weight. Colors default to black;
-        choose Match original lettering to copy source color. Rendering adds no
-        text background. Font matching compares source lettering with installed
-        fonts. If source text is empty, configured local OCR is tried. Scans
-        provide an estimate; choose a family manually when needed.
-      </p>
-      {message && (
-        <p role="status" className="field-hint">
-          {message}
+      <details className="option-section">
+        <summary>Match lettering from the original document</summary>
+        <label>
+          Source text for font matching
+          <input
+            maxLength={200}
+            value={field.text}
+            placeholder="Text visible in the selected source region"
+            onChange={(e) =>
+              onChange({ text: e.target.value, confirmed: false })
+            }
+          />
+        </label>
+        <button
+          type="button"
+          className="btn"
+          disabled={busy || !templateId}
+          onClick={async () => {
+            setBusy(true);
+            setMessage("");
+            try {
+              const result = await post<{
+                region: Region;
+                match: { label: string; similarity: number; warning: string };
+              }>(`/templates/${templateId}/font-match`, { region: field });
+              onChange(result.region);
+              setMessage(
+                `${result.match.label} · shape similarity ${Math.round(result.match.similarity * 100)}%. ${result.match.warning}`,
+              );
+            } catch (e) {
+              setMessage(
+                e instanceof Error ? e.message : "Font matching failed",
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "Matching…" : "Match source font"}
+        </button>
+        <p className="field-hint">
+          Automatic font matching follows source weight. Colors default to
+          black; choose Match original lettering to copy source color. Rendering
+          adds no text background. Font matching compares source lettering with
+          installed fonts. If source text is empty, configured local OCR is
+          tried. Scans provide an estimate; choose a family manually when
+          needed.
         </p>
-      )}
+        {message && (
+          <p role="status" className="field-hint">
+            {message}
+          </p>
+        )}
+      </details>
     </details>
   );
 }

@@ -187,3 +187,5 @@ or one inference per sample. Failed validation routes back to planning, bounded
 by a retry limit. The implemented MCP adapter reuses FastAPI contracts and
 validation rather than implementing agent planning. Its exact tool names,
 configuration, native image results and export transfers are in [mcp.md](mcp.md).
+
+The authored Document lab has a separate bounded, disk-checkpointed pack queue sharing `CPU_LOCK`. Its structured invoices/forms export grouped splits, page PDFs, relationships and cell labels. Capture homographies apply to image and mask geometry together. Revisioned label editing and single-document regeneration also extend existing template samples; see [Document lab](document-lab.md).

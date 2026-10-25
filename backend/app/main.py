@@ -46,6 +46,9 @@ from .canvas import CanvasRequest, CanvasPreview, create_canvas, canvas_info
 from .addresses import country_catalog,generate_address
 from .diffusion import DiffusionJobs, diffusion_router, capabilities as diffusion_capabilities
 from .seal_artwork import load_emblem
+from .document_lab import DocumentLab,lab_router
+from .sample_editing import editing_router
+from .consistency import validate_links
 
 
 class OnlinePortraitRequest(Contract):
@@ -95,6 +98,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     engine, sessions = connect(database_url or settings.database_url)
     worker = Worker(sessions,root)
     image_jobs = DiffusionJobs(root)
+    document_lab=DocumentLab(root)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -102,6 +106,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
             worker.start()
         yield
         image_jobs.close()
+        document_lab.close()
         if start_worker:
             worker.close()
         engine.dispose()
@@ -111,11 +116,14 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
     app.state.sessions = sessions
     app.state.worker = worker
     app.state.image_jobs = image_jobs
+    app.state.document_lab=document_lab
     app.include_router(text_router(sessions,root,queue_lock))
     app.include_router(dataset_delete_router(sessions,root,queue_lock))
     app.include_router(analysis_router(sessions,root))
     app.include_router(asset_router(root))
     app.include_router(diffusion_router(image_jobs))
+    app.include_router(lab_router(document_lab))
+    app.include_router(editing_router(sessions,root,queue_lock))
     app.add_middleware(TrustedHostMiddleware,allowed_hosts=["localhost","127.0.0.1","testserver"])
     origins = ["http://localhost:5173","http://127.0.0.1:5173","http://localhost:8000","http://127.0.0.1:8000"]
     origins.extend([f"http://localhost:{settings.api_port}",f"http://127.0.0.1:{settings.api_port}"])
@@ -150,6 +158,8 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
 
     def check_assets(regions):
         for r in regions:
+            if region_action(r)=='replace' and r.kind=='signature':
+                for id_ in r.rule_options.signature_artwork_ids:portrait_metadata(root,id_)
             if region_action(r)=="replace" and r.kind=="seal" and r.rule_options.seal_artwork_id:
                 portrait_metadata(root,r.rule_options.seal_artwork_id)
             if region_action(r)=="replace" and r.kind=="seal":
@@ -302,7 +312,7 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
                                 "blank_canvas":True,"transparent_canvas":True,"freehand_drawing":True,"photo_backgrounds":True,
                                 "country_addresses":True,
                                 "visual_region_proposals":True,"synthetic_stamps":True,
-                                "text_datasets":True,"llm":True,"local_llm_adapter":True,"document_rule_planner":True,"portrait_fields":True,"erase_regions":True,"font_matching":True,"custom_pattern_templates":True,"qr_controls":True,"pii_suggestions":True,"ruled_table_extraction":True,"transparent_codes":True,"trocr":any(vision_capabilities()["models"].values()),"diffusion":diffusion_capabilities(root)["ready"],"diffusion_adapter":True,"presidio":False,"mcp":True,"rag":False},
+                                "text_datasets":True,"llm":True,"local_llm_adapter":True,"document_rule_planner":True,"portrait_fields":True,"erase_regions":True,"font_matching":True,"custom_pattern_templates":True,"qr_controls":True,"pii_suggestions":True,"ruled_table_extraction":True,"transparent_codes":True,"trocr":any(vision_capabilities()["models"].values()),"diffusion":diffusion_capabilities(root)["ready"],"diffusion_adapter":True,"document_packs":True,"capture_simulation":True,"sample_label_editing":True,"presidio":False,"mcp":True,"rag":False},
                 "privacy":"Template images and OCR stay local. Only explicit provider portrait downloads use the internet. Detection requires manual review."}
 
     @app.get("/api/templates")
@@ -482,6 +492,8 @@ def create_app(database_url: str | None = None, root: Path | None = None, start_
             reviewed_regions=normalize_regions([Region.model_validate(r) for r in t.regions],strict=True)
             check_review(reviewed_regions,t.width,t.height,t.privacy_confirmed,allow_overlap=t.engine=="canvas")
             check_qr_capacity(reviewed_regions,body)
+            from .render import optional_regions
+            validate_links(body.field_links,optional_regions(t.width,t.height,reviewed_regions,body))
             if body.seals:
                 for region in reviewed_regions:
                     if region.kind=="seal" and region_action(region)=="replace":

@@ -222,11 +222,15 @@ def render_seal(size,content,rng,style,emblem=None):
         if emblem is not None:motif='artwork'
         if motif!='none':
             step=ry*.23/max(1,count)
-            mx,my=cx,cy-ry*.16;r=min(rx,ry)*.18
+            # Sparse corporate seals reserve a substantial crest area, like a
+            # company stamp. Dense office seals retain room for all body rows.
+            large_motif=shape=='corporate' and count<=2 and not inner_arcs
+            mx,my=cx,cy-ry*(.13 if large_motif else .16);r=min(rx,ry)*(.30 if large_motif else .18)
             if motif=='artwork':
-                from PIL import ImageOps,ImageChops
+                from PIL import ImageOps
+                from .seal_artwork import artwork_alpha
                 tile=ImageOps.contain(emblem.convert('RGBA'),(max(1,round(r*2.5)),max(1,round(r*2))))
-                alpha=ImageChops.multiply(ImageOps.invert(ImageOps.grayscale(tile)),tile.getchannel('A'))
+                alpha=artwork_alpha(tile)
                 colored=Image.new('RGBA',tile.size,ink);colored.putalpha(alpha)
                 layer.alpha_composite(colored,(round(mx-tile.width/2),round(my-tile.height/2)))
             elif motif=='shield':

@@ -8,24 +8,9 @@ import ColorControls from "./ColorControls";
 import AddressControls from "./AddressControls";
 import DiffusionPanel from "./DiffusionPanel";
 
-export const defaultRuleOptions: RuleOptions = {
-  date_format: "yyyy-mm-dd",
-  date_start: "2015-01-01",
-  date_end: "2025-12-31",
-  identifier_pattern: "",
-  literal_text: null,
-  portrait_source: "illustration",
-  portrait_asset_ids: [],
-  character_length: null,
-  character_set: "alnum",
-  font_id: "auto",
-  font_size: null,
-  text_color: "#000000",
-  color_mode: "black",
-  font_weight: "auto",
-  background_mode: "auto",
-  background_color: "#ffffff",
-};
+import { defaultRuleOptions } from "./ruleDefaults";
+export { defaultRuleOptions } from "./ruleDefaults";
+
 interface Portrait {
   id: string;
   preview_url: string;
@@ -132,7 +117,15 @@ export default function RegionRuleControls({
 
   return (
     <fieldset className="region-rule-controls" disabled={busy} aria-busy={busy}>
-      <AssetStyleControls field={field} options={options} onChange={onChange} />
+      <p className="field-hint">
+        {field.kind === "seal"
+          ? "Choose a seal design, edit the wording, then preview it. The complete seal is generated for this box."
+          : field.kind === "signature"
+            ? "Choose names or initials, adjust thickness and color. Leave the signing text empty for random fictional names."
+            : field.kind === "portrait"
+              ? "Use a drawing, upload photos, or generate fictional people. Background changes and AI generation are optional."
+              : "Leave values empty to generate new content for each document. Open extra settings only when you need them."}
+      </p>
       <label>
         Action
         <select
@@ -149,92 +142,6 @@ export default function RegionRuleControls({
           <option value="keep">Keep original pixels</option>
         </select>
       </label>
-      <label>
-        Rule prompt
-        <textarea
-          rows={3}
-          maxLength={2000}
-          value={field.rule}
-          placeholder="3 uppercase letters and 6 digits; invoice code INV- plus 8 digits; dd/mm/yyyy; remove this completely"
-          onChange={(e) => {
-            onChange({
-              rule: e.target.value,
-              rule_resolved_hash: "",
-              confirmed: false,
-            });
-            setMessage("");
-            setError("");
-            setResolution(null);
-          }}
-        />
-      </label>
-      <div className="rule-buttons">
-        <button
-          type="button"
-          className="btn"
-          disabled={!field.rule.trim()}
-          onClick={() => interpret("auto")}
-        >
-          Apply rule
-        </button>
-        <button
-          type="button"
-          className="btn"
-          disabled={!field.rule.trim()}
-          onClick={() => interpret("local_llm")}
-        >
-          Interpret with local Qwen
-        </button>
-      </div>
-      <p className="field-hint">
-        Apply a prompt and review the plan. Common rules work immediately; other
-        prompts use local Qwen. Changing controls clears the prompt.
-      </p>
-      {busy && (
-        <p role="status" className="field-hint">
-          Processing…
-        </p>
-      )}
-      {error && (
-        <p role="alert" className="rule-error">
-          {error}
-        </p>
-      )}
-      {message && (
-        <p role="status" className="field-hint">
-          {message}
-        </p>
-      )}
-      {resolution && (
-        <div className="field-hint" role="status">
-          <strong>
-            {resolution.engine === "local_qwen"
-              ? "Interpreted by local Qwen"
-              : resolution.engine === "known_rule_fallback"
-                ? "Applied recognized rule fallback"
-                : "Applied recognized rule"}
-          </strong>
-          {resolution.engine === "known_rule_fallback" && (
-            <p>{resolution.warnings?.[0]}</p>
-          )}
-          {resolution.region.rule_options?.identifier_pattern && (
-            <p>
-              Resolved pattern:{" "}
-              <code>{resolution.region.rule_options.identifier_pattern}</code>{" "}
-              (no added prefix)
-            </p>
-          )}
-          {resolution.references?.map((reference) => (
-            <p key={reference.url}>
-              Format reference:{" "}
-              <a href={reference.url} target="_blank" rel="noreferrer">
-                {reference.title}
-              </a>{" "}
-              · cached {reference.verified_at}
-            </p>
-          ))}
-        </div>
-      )}
       {action === "erase" && (
         <p className="field-hint">
           The selected rectangle is cleared using nearby background color. It
@@ -298,7 +205,8 @@ export default function RegionRuleControls({
       )}
       {action === "replace" &&
         ["identifier", "text", "qr", "barcode"].includes(field.kind) && (
-          <>
+          <details className="option-section">
+            <summary>Generated value · length and pattern</summary>
             <details>
               <summary>Optional custom pattern</summary>
               <label>
@@ -368,7 +276,7 @@ export default function RegionRuleControls({
               provided, its output must match any explicit length. Total output:
               1–{field.kind === "qr" ? 500 : 128} characters.
             </p>
-          </>
+          </details>
         )}
       {action === "replace" &&
         [
@@ -408,6 +316,13 @@ export default function RegionRuleControls({
             />
           </label>
         )}
+      {action === "replace" && (
+        <AssetStyleControls
+          field={field}
+          options={options}
+          onChange={onChange}
+        />
+      )}
       {action === "replace" &&
         ![
           "portrait",
@@ -430,39 +345,26 @@ export default function RegionRuleControls({
         <p className="field-hint">Exact text: {options.literal_text}</p>
       )}
       {action === "replace" &&
-        ["portrait", "seal", "stamp"].includes(field.kind) && (
-          <details>
-            <summary>Generate or select Stable Diffusion artwork</summary>
-            <DiffusionPanel
-              key={`${field.id}:${field.kind}`}
-              kind={
-                field.kind === "portrait"
-                  ? "portrait"
-                  : field.kind === "seal"
-                    ? "seal_artwork"
-                    : "stamp_artwork"
-              }
-              onUse={(asset) => {
-                if (field.kind === "seal")
-                  setOptions({
-                    seal_artwork_id: asset.id,
-                    seal_artwork_ids: [],
-                    seal_style: "corporate",
-                  });
-                else if (!options.portrait_asset_ids.includes(asset.id))
-                  addPortraits([asset]);
-              }}
-              onUseMany={(assets) => {
-                if (field.kind === "seal")
-                  setOptions({
-                    seal_artwork_id: null,
-                    seal_artwork_ids: assets.map((asset) => asset.id),
-                    seal_style: "corporate",
-                  });
-                else addPortraits(assets);
-              }}
+        field.kind === "signature" &&
+        !!options.signature_artwork_ids?.length && (
+          <div>
+            <img
+              src={`/api/portraits/${options.signature_artwork_ids[0]}/image`}
+              alt="Generated signature artwork"
+              style={{ width: 160 }}
             />
-          </details>
+            <p className="field-hint">
+              {options.signature_artwork_ids.length} generated signature images.
+              Spelling is unverified; annotation text is left empty.
+            </p>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setOptions({ signature_artwork_ids: [] })}
+            >
+              Use procedural signatures instead
+            </button>
+          </div>
         )}
       {action === "replace" &&
         field.kind === "seal" &&
@@ -493,7 +395,8 @@ export default function RegionRuleControls({
       {action === "replace" && ["portrait", "stamp"].includes(field.kind) && (
         <>
           {field.kind === "portrait" && (
-            <>
+            <details className="option-section">
+              <summary>Photo background · keep, remove or recolor</summary>
               <label>
                 Photo background
                 <select
@@ -564,7 +467,7 @@ export default function RegionRuleControls({
                     An existing transparent PNG keeps its supplied edges.
                   </p>
                 )}
-            </>
+            </details>
           )}
           <label>
             {field.kind === "stamp"
@@ -623,116 +526,269 @@ export default function RegionRuleControls({
               </div>
             ))}
           </div>
-          <label className="check-label">
-            <input
-              type="checkbox"
-              checked={rights}
-              onChange={(e) => setRights(e.target.checked)}
-            />
-            I have permission to use these images in this dataset.
-          </label>
-          <label>
-            Permission / attribution note
-            <input
-              maxLength={1000}
-              value={license}
-              onChange={(e) => setLicense(e.target.value)}
-              placeholder="Image owner, license or generated image source"
-            />
-          </label>
-          <label>
-            Add images or ZIP to pool (up to 20 per upload)
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,.zip,application/zip"
-              multiple
-              disabled={!rights || options.portrait_asset_ids.length >= 100}
-              onChange={(e) => {
-                const files = Array.from(e.target.files || []);
-                e.target.value = "";
-                if (files.length)
-                  run(async () => {
-                    const form = new FormData();
-                    for (const file of files) form.append("files", file);
-                    form.append(
-                      "max_count",
-                      String(
-                        Math.min(20, 100 - options.portrait_asset_ids.length),
-                      ),
-                    );
-                    form.append("rights_confirmed", "true");
-                    form.append(
-                      "license_note",
-                      license || "User confirmed permission for dataset use",
-                    );
-                    const result = await api<{ portraits: Portrait[] }>(
-                      "/portraits/batch",
-                      {
-                        method: "POST",
-                        body: form,
-                      },
-                    );
-                    addPortraits(result.portraits);
-                  });
-              }}
-            />
-          </label>
-          <p className="field-hint">
-            {options.portrait_asset_ids.length}/100 selected. Select multiple
-            PNG, JPEG or WebP images, or a ZIP containing images. Each image: up
-            to 8 MB / 8 megapixels. Combined upload and uncompressed images: up
-            to 40 MB. Imports add to the existing pool; invalid or oversized
-            batches leave it unchanged.
-          </p>
-          <details>
-            <summary>Optional online portrait import</summary>
-            <p className="field-hint">
-              Uses an operator-configured image provider. The template and
-              prompt stay local. The LLM does not browse or scrape for photos.
-            </p>
-            {!capabilities.data?.online_configured && (
-              <p className="field-hint">
-                No online provider configured. Upload an image, or set
-                DATAFORGE_ALLOW_ONLINE_PORTRAITS and
-                DATAFORGE_PORTRAIT_PROVIDER_URL in .env.
-              </p>
-            )}
+          <details
+            className="option-section"
+            open={options.portrait_source === "asset_pool"}
+          >
+            <summary>Add photos or a ZIP</summary>
             <label className="check-label">
               <input
                 type="checkbox"
-                checked={online}
-                onChange={(e) => setOnline(e.target.checked)}
+                checked={rights}
+                onChange={(e) => setRights(e.target.checked)}
               />
-              I approve this online download.
+              I have permission to use these images in this dataset.
             </label>
-            <button
-              type="button"
-              className="btn"
-              disabled={
-                !capabilities.data?.online_configured ||
-                !online ||
-                !rights ||
-                options.portrait_asset_ids.length >= 100
-              }
-              onClick={() =>
-                run(async () =>
-                  addPortraits([
-                    await post<Portrait>("/portraits/fetch", {
-                      confirm_online: true,
-                      rights_confirmed: true,
-                      license_note:
-                        license ||
-                        "User confirmed provider image permission for dataset use",
-                    }),
-                  ]),
-                )
-              }
-            >
-              Fetch from configured provider
-            </button>
+            <label>
+              Permission / attribution note
+              <input
+                maxLength={1000}
+                value={license}
+                onChange={(e) => setLicense(e.target.value)}
+                placeholder="Image owner, license or generated image source"
+              />
+            </label>
+            <label>
+              Add images or ZIP to pool (up to 20 per upload)
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,.zip,application/zip"
+                multiple
+                disabled={!rights || options.portrait_asset_ids.length >= 100}
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  e.target.value = "";
+                  if (files.length)
+                    run(async () => {
+                      const form = new FormData();
+                      for (const file of files) form.append("files", file);
+                      form.append(
+                        "max_count",
+                        String(
+                          Math.min(20, 100 - options.portrait_asset_ids.length),
+                        ),
+                      );
+                      form.append("rights_confirmed", "true");
+                      form.append(
+                        "license_note",
+                        license || "User confirmed permission for dataset use",
+                      );
+                      const result = await api<{ portraits: Portrait[] }>(
+                        "/portraits/batch",
+                        {
+                          method: "POST",
+                          body: form,
+                        },
+                      );
+                      addPortraits(result.portraits);
+                    });
+                }}
+              />
+            </label>
+            <p className="field-hint">
+              {options.portrait_asset_ids.length}/100 selected. Select multiple
+              PNG, JPEG or WebP images, or a ZIP containing images. Each image:
+              up to 8 MB / 8 megapixels. Combined upload and uncompressed
+              images: up to 40 MB. Imports add to the existing pool; invalid or
+              oversized batches leave it unchanged.
+            </p>
+            <details>
+              <summary>Optional online portrait import</summary>
+              <p className="field-hint">
+                Uses an operator-configured image provider. The template and
+                prompt stay local. The LLM does not browse or scrape for photos.
+              </p>
+              {!capabilities.data?.online_configured && (
+                <p className="field-hint">
+                  No online provider configured. Upload an image, or set
+                  DATAFORGE_ALLOW_ONLINE_PORTRAITS and
+                  DATAFORGE_PORTRAIT_PROVIDER_URL in .env.
+                </p>
+              )}
+              <label className="check-label">
+                <input
+                  type="checkbox"
+                  checked={online}
+                  onChange={(e) => setOnline(e.target.checked)}
+                />
+                I approve this online download.
+              </label>
+              <button
+                type="button"
+                className="btn"
+                disabled={
+                  !capabilities.data?.online_configured ||
+                  !online ||
+                  !rights ||
+                  options.portrait_asset_ids.length >= 100
+                }
+                onClick={() =>
+                  run(async () =>
+                    addPortraits([
+                      await post<Portrait>("/portraits/fetch", {
+                        confirm_online: true,
+                        rights_confirmed: true,
+                        license_note:
+                          license ||
+                          "User confirmed provider image permission for dataset use",
+                      }),
+                    ]),
+                  )
+                }
+              >
+                Fetch from configured provider
+              </button>
+            </details>
           </details>
         </>
       )}
+      {action === "replace" &&
+        ["portrait", "seal", "stamp", "signature"].includes(field.kind) && (
+          <details>
+            <summary>
+              {field.kind === "seal"
+                ? "Optional AI emblem · decoration only"
+                : "Optional AI image generation"}
+            </summary>
+            {field.kind === "seal" && (
+              <p className="field-hint">
+                Seal wording, shape and colors above create the complete text
+                seal. This optional image generator supplies only its center
+                emblem.
+              </p>
+            )}
+            <DiffusionPanel
+              key={`${field.id}:${field.kind}`}
+              kind={
+                field.kind === "portrait"
+                  ? "portrait"
+                  : field.kind === "signature"
+                    ? "signature_artwork"
+                    : field.kind === "seal"
+                      ? "seal_artwork"
+                      : "stamp_artwork"
+              }
+              onUse={(asset) => {
+                if (field.kind === "signature") {
+                  setOptions({ signature_artwork_ids: [asset.id] });
+                  return;
+                }
+                if (field.kind === "seal")
+                  setOptions({
+                    seal_artwork_id: asset.id,
+                    seal_artwork_ids: [],
+                    seal_style: "corporate",
+                  });
+                else if (!options.portrait_asset_ids.includes(asset.id))
+                  addPortraits([asset]);
+              }}
+              onUseMany={(assets) => {
+                if (field.kind === "signature") {
+                  setOptions({
+                    signature_artwork_ids: assets.map((a) => a.id),
+                  });
+                  return;
+                }
+                if (field.kind === "seal")
+                  setOptions({
+                    seal_artwork_id: null,
+                    seal_artwork_ids: assets.map((asset) => asset.id),
+                    seal_style: "corporate",
+                  });
+                else addPortraits(assets);
+              }}
+            />
+          </details>
+        )}
+      <details className="option-section">
+        <summary>Advanced · describe a rule in words</summary>
+        <label>
+          Rule prompt
+          <textarea
+            rows={3}
+            maxLength={2000}
+            value={field.rule}
+            placeholder="3 uppercase letters and 6 digits; invoice code INV- plus 8 digits; dd/mm/yyyy; remove this completely"
+            onChange={(e) => {
+              onChange({
+                rule: e.target.value,
+                rule_resolved_hash: "",
+                confirmed: false,
+              });
+              setMessage("");
+              setError("");
+              setResolution(null);
+            }}
+          />
+        </label>
+        <div className="rule-buttons">
+          <button
+            type="button"
+            className="btn"
+            disabled={!field.rule.trim()}
+            onClick={() => interpret("auto")}
+          >
+            Apply rule
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={!field.rule.trim()}
+            onClick={() => interpret("local_llm")}
+          >
+            Interpret with local Qwen
+          </button>
+        </div>
+        <p className="field-hint">
+          Apply a prompt and review the plan. Common rules work immediately;
+          other prompts use local Qwen. Changing controls clears the prompt.
+        </p>
+        {busy && (
+          <p role="status" className="field-hint">
+            Processing…
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="rule-error">
+            {error}
+          </p>
+        )}
+        {message && (
+          <p role="status" className="field-hint">
+            {message}
+          </p>
+        )}
+        {resolution && (
+          <div className="field-hint" role="status">
+            <strong>
+              {resolution.engine === "local_qwen"
+                ? "Interpreted by local Qwen"
+                : resolution.engine === "known_rule_fallback"
+                  ? "Applied recognized rule fallback"
+                  : "Applied recognized rule"}
+            </strong>
+            {resolution.engine === "known_rule_fallback" && (
+              <p>{resolution.warnings?.[0]}</p>
+            )}
+            {resolution.region.rule_options?.identifier_pattern && (
+              <p>
+                Resolved pattern:{" "}
+                <code>{resolution.region.rule_options.identifier_pattern}</code>{" "}
+                (no added prefix)
+              </p>
+            )}
+            {resolution.references?.map((reference) => (
+              <p key={reference.url}>
+                Format reference:{" "}
+                <a href={reference.url} target="_blank" rel="noreferrer">
+                  {reference.title}
+                </a>{" "}
+                · cached {reference.verified_at}
+              </p>
+            ))}
+          </div>
+        )}
+      </details>
     </fieldset>
   );
 }

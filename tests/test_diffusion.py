@@ -25,6 +25,19 @@ def wait_job(client, id_):
     raise AssertionError('Preview did not finish')
 
 
+def test_signature_image_pool_keeps_transcription_unverified(runtime):
+    response=runtime.post('/api/diffusion/jobs',json={'kind':'signature_artwork','prompt':'One invented handwritten autograph','seed':37})
+    assert response.status_code==200,response.text
+    job=wait_job(runtime,response.json()['id']);assert job['status']=='completed',job
+    assert job['metrics']['transcription_verified'] is False
+    asset=runtime.post(f'/api/diffusion/jobs/{job["id"]}/save').json()
+    rendered=runtime.post('/api/assets/generate',json={'kind':'signature','value':'Do not claim this spelling','options':{'signature_artwork_ids':[asset['id']]}})
+    assert rendered.status_code==200,rendered.text
+    details=rendered.json()['metadata']['details']
+    assert details['text']=='' and details['transcription_verified'] is False
+    assert details['asset_provenance']['source']=='local_stable_diffusion'
+
+
 @pytest.fixture
 def runtime(tmp_path, monkeypatch):
     model = tmp_path/'models'/'sd-turbo'; model.mkdir(parents=True)
@@ -33,7 +46,9 @@ def runtime(tmp_path, monkeypatch):
     monkeypatch.setattr(diffusion.psutil, 'virtual_memory', lambda: type('Memory', (), {'available':8*1024**3})())
     def fake(folder, model, request, cancelled, progress):
         image = Image.new('RGB',(512,512),'white'); draw = ImageDraw.Draw(image)
-        draw.ellipse((130,70,380,440), fill='black'); image.save(folder/'raw.png')
+        if request['kind']=='signature_artwork':image=Image.open(folder/'guide.png').convert('RGB')
+        else:draw.ellipse((130,70,380,440), fill='black')
+        image.save(folder/'raw.png')
         progress(1)
         return {'elapsed_seconds':.1,'peak_worker_rss_mb':100,'width':512,'height':512}
     monkeypatch.setattr(diffusion, 'run_worker', fake)
@@ -183,6 +198,7 @@ def test_partial_batch_retains_images_and_resumes_after_app_restart(runtime,tmp_
     job=runtime.post('/api/diffusion/jobs',json={'prompt':'a fictional person','count':3,'seed':42}).json()
     partial=wait_job(runtime,job['id'])
     assert partial['status']=='failed' and partial['completed']==1
+    assert 'Temporary test failure' in partial['error'],partial
     assert len(runtime.post(f"/api/diffusion/jobs/{job['id']}/save").json()['assets'])==1
     fail=False
     with TestClient(create_app(f"sqlite:///{tmp_path/'restart.db'}",tmp_path,start_worker=False)) as restarted:

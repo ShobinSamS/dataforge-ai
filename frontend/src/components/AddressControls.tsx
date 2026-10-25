@@ -68,7 +68,7 @@ export default function AddressControls({
           onChange={(e) => update({ address_country: e.target.value })}
         >
           <option value="">
-            Legacy fictional placeholder · choose a country to configure
+            Fictional address · choose a country for local formats
           </option>
           {countries.map((c) => (
             <option key={c.code} value={c.code}>
@@ -77,68 +77,71 @@ export default function AddressControls({
           ))}
         </select>
       </label>
-      <div role="group" aria-label="Address components and order">
-        <p className="field-hint">
-          Select components, then move them into the order you want.
-        </p>
-        {[
-          ...order,
-          ...fields.map(([f]) => f).filter((f) => !order.includes(f)),
-        ].map((key) => {
-          const entry = fields.find(([f]) => f === key)!;
-          const index = order.indexOf(key);
-          return (
-            <div key={key} className="address-component-row">
-              <label className="check-label">
-                <input
-                  type="checkbox"
-                  checked={index >= 0}
-                  onChange={(e) =>
-                    reorder(
-                      e.target.checked
-                        ? [...order, key]
-                        : order.filter((f) => f !== key),
-                    )
-                  }
-                />
-                {entry[1]}
-              </label>
-              <button
-                type="button"
-                className="btn small"
-                aria-label={`Move ${key} up`}
-                disabled={index <= 0}
-                onClick={() => {
-                  const next = [...order];
-                  [next[index - 1], next[index]] = [
-                    next[index],
-                    next[index - 1],
-                  ];
-                  reorder(next);
-                }}
-              >
-                ↑
-              </button>
-              <button
-                type="button"
-                className="btn small"
-                aria-label={`Move ${key} down`}
-                disabled={index < 0 || index === order.length - 1}
-                onClick={() => {
-                  const next = [...order];
-                  [next[index + 1], next[index]] = [
-                    next[index],
-                    next[index + 1],
-                  ];
-                  reorder(next);
-                }}
-              >
-                ↓
-              </button>
-            </div>
-          );
-        })}
-      </div>
+      <details className="option-section">
+        <summary>Address parts and order</summary>
+        <div role="group" aria-label="Address components and order">
+          <p className="field-hint">
+            Select components, then move them into the order you want.
+          </p>
+          {[
+            ...order,
+            ...fields.map(([f]) => f).filter((f) => !order.includes(f)),
+          ].map((key) => {
+            const entry = fields.find(([f]) => f === key)!;
+            const index = order.indexOf(key);
+            return (
+              <div key={key} className="address-component-row">
+                <label className="check-label">
+                  <input
+                    type="checkbox"
+                    checked={index >= 0}
+                    onChange={(e) =>
+                      reorder(
+                        e.target.checked
+                          ? [...order, key]
+                          : order.filter((f) => f !== key),
+                      )
+                    }
+                  />
+                  {entry[1]}
+                </label>
+                <button
+                  type="button"
+                  className="btn small"
+                  aria-label={`Move ${key} up`}
+                  disabled={index <= 0}
+                  onClick={() => {
+                    const next = [...order];
+                    [next[index - 1], next[index]] = [
+                      next[index],
+                      next[index - 1],
+                    ];
+                    reorder(next);
+                  }}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="btn small"
+                  aria-label={`Move ${key} down`}
+                  disabled={index < 0 || index === order.length - 1}
+                  onClick={() => {
+                    const next = [...order];
+                    [next[index + 1], next[index]] = [
+                      next[index],
+                      next[index + 1],
+                    ];
+                    reorder(next);
+                  }}
+                >
+                  ↓
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </details>
       <div className="rule-buttons">
         <button
           type="button"
@@ -167,22 +170,25 @@ export default function AddressControls({
           Separate lines
         </button>
       </div>
-      <label>
-        Address format
-        <textarea
-          rows={4}
-          maxLength={500}
-          value={format}
-          onChange={(e) => update({ address_format: e.target.value })}
-        />
-      </label>
-      <p className="field-hint">
-        You can type custom separators, labels and line breaks. Extra
-        placeholders:{" "}
-        {"{house_number}, {street_name}, {state_code}, {country_code}"}. Country
-        selection and format are reused for a fresh address per sample. Increase
-        the field height for multiple lines.
-      </p>
+      <details className="option-section">
+        <summary>Custom address format</summary>
+        <label>
+          Address format
+          <textarea
+            rows={4}
+            maxLength={500}
+            value={format}
+            onChange={(e) => update({ address_format: e.target.value })}
+          />
+        </label>
+        <p className="field-hint">
+          You can type custom separators, labels and line breaks. Extra
+          placeholders:{" "}
+          {"{house_number}, {street_name}, {state_code}, {country_code}"}.
+          Country selection and format are reused for a fresh address per
+          sample. Increase the field height for multiple lines.
+        </p>
+      </details>
       <button
         type="button"
         className="btn"

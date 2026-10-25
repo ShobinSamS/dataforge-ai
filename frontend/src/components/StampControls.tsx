@@ -168,50 +168,53 @@ export default function StampControls({
               onChange={(e) => change({ stamp_denomination: e.target.value })}
             />
           </label>
-          <label className="check-label">
-            <input
-              type="checkbox"
-              checked={options.stamp_perforated ?? true}
-              onChange={(e) => change({ stamp_perforated: e.target.checked })}
-            />
-            Perforated paper edges
-          </label>
-          <label>
-            Paper age · {Math.round((options.stamp_age ?? 0.35) * 100)}%
-            <input
-              aria-label="Paper age"
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round((options.stamp_age ?? 0.35) * 100)}
-              onChange={(e) =>
-                change({ stamp_age: Number(e.target.value) / 100 })
-              }
-            />
-          </label>
-          <label>
-            Cancellation mark
-            <select
-              value={options.stamp_cancellation || "none"}
-              onChange={(e) =>
-                change({
-                  stamp_cancellation: e.target
-                    .value as RuleOptions["stamp_cancellation"],
-                })
-              }
-            >
-              {["random", "none", "postmark", "waves", "pen"].map((v) => (
-                <option key={v}>{v}</option>
-              ))}
-            </select>
-          </label>
-          <p className="field-hint">
-            Portrait and revenue artwork can use the approved image pool below.
-            Other artwork is generated locally. Use a separate rubber stamp
-            region for a separately labeled postmark. Cancellation is off by
-            default. Pen and wave cancellations are separate marks on the stamp;
-            your signature stays in its own region.
-          </p>
+          <details className="option-section">
+            <summary>Paper edges, age and cancellation marks</summary>
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={options.stamp_perforated ?? true}
+                onChange={(e) => change({ stamp_perforated: e.target.checked })}
+              />
+              Perforated paper edges
+            </label>
+            <label>
+              Paper age · {Math.round((options.stamp_age ?? 0.35) * 100)}%
+              <input
+                aria-label="Paper age"
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round((options.stamp_age ?? 0.35) * 100)}
+                onChange={(e) =>
+                  change({ stamp_age: Number(e.target.value) / 100 })
+                }
+              />
+            </label>
+            <label>
+              Cancellation mark
+              <select
+                value={options.stamp_cancellation || "none"}
+                onChange={(e) =>
+                  change({
+                    stamp_cancellation: e.target
+                      .value as RuleOptions["stamp_cancellation"],
+                  })
+                }
+              >
+                {["random", "none", "postmark", "waves", "pen"].map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+            </label>
+            <p className="field-hint">
+              Portrait and revenue artwork can use the approved image pool
+              below. Other artwork is generated locally. Use a separate rubber
+              stamp region for a separately labeled postmark. Cancellation is
+              off by default. Pen and wave cancellations are separate marks on
+              the stamp; your signature stays in its own region.
+            </p>
+          </details>
         </>
       ) : (
         <>

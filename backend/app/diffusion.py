@@ -6,6 +6,8 @@ import json
 import os
 import re
 import secrets
+import shutil
+import random
 import subprocess
 import sys
 import threading
@@ -24,11 +26,15 @@ from pydantic import Field, field_validator
 from .db import uid
 from .portraits import store_portrait, portrait_background, portrait_metadata
 from .resources import CPU_LOCK
-from .schemas import Contract, RuleOptions
+from .schemas import Contract, RuleOptions,SignatureStyle
 from .image_prompts import generate_prompt, model_status
+from .signature_image import make_guide,isolate_signature
+from .colors import choose_color
 
-Kind = Literal["portrait", "seal_artwork", "stamp_artwork"]
+Kind = Literal["portrait", "seal_artwork", "stamp_artwork", "signature_artwork", "text_seal"]
 PREFIXES = {
+    "signature_artwork": "Single small handwritten autograph centered on blank white, thin black ink, wide empty margins. ",
+    "text_seal":"Native text seal. ",
     "portrait": "Studio photograph of a fictional adult, centered head and shoulders, full head visible, plain light gray background, soft lighting. ",
     "seal_artwork": "Simple black line-art emblem on pure white, centered isolated monochrome engraving, without lettering or borders. ",
     "stamp_artwork": "Vintage stamp illustration, centered fine engraving, artwork only without lettering, numbers or borders. ",
@@ -56,6 +62,23 @@ def terminate_worker(child):
     child.wait(timeout=10)
 
 
+class InkAppearance(Contract):
+    color_mode: Literal['black','manual','random'] = 'black'
+    text_color: str = Field(default='#000000',pattern=r'^#[0-9a-fA-F]{6}$')
+    color_palette: list[str] = Field(default_factory=lambda:['#000000','#173574','#a61c32','#216e39','#6a338e'],min_length=1,max_length=20)
+    @field_validator('color_palette')
+    @classmethod
+    def colors(cls,value):
+        if any(not re.fullmatch(r'#[0-9a-fA-F]{6}',c) for c in value):raise ValueError('Palette colors must use #RRGGBB')
+        return value
+
+
+def colorize(image,appearance,seed):
+    ink=choose_color(RuleOptions(**appearance.model_dump()),random.Random(f'ink:{seed}'),'text')
+    result=Image.new('RGBA',image.size,ink);result.putalpha(image.getchannel('A'))
+    return result,ink
+
+
 class DiffusionRequest(Contract):
     kind: Kind = "portrait"
     prompt: str = Field(min_length=3, max_length=600)
@@ -66,6 +89,10 @@ class DiffusionRequest(Contract):
     prompt_seed: int | None = Field(default=None,ge=0,le=2**31-1)
     background: Literal["preserve", "transparent", "solid"] = "preserve"
     background_color: str = "#ffffff"
+    ink: InkAppearance = Field(default_factory=InkAppearance)
+    signature_text: str = Field(default='',max_length=80,pattern=r"^[A-Za-z .'-]*$")
+    signature_style: SignatureStyle = 'mixed'
+    seal_options: RuleOptions = Field(default_factory=RuleOptions)
 
     @field_validator("prompt")
     @classmethod
@@ -73,6 +100,12 @@ class DiffusionRequest(Contract):
         value = value.strip()
         if len(value) < 3: raise ValueError("Describe the image in at least three characters")
         return value
+
+    @field_validator('signature_text')
+    @classmethod
+    def signing_letters(cls,value):
+        if value.strip() and not any(c.isalpha() for c in value):raise ValueError('Signature guide text needs at least one letter')
+        return value.strip()
 
     @field_validator("background_color")
     @classmethod
@@ -162,7 +195,7 @@ class DiffusionJobs:
 
     def create_job(self, body, manifest, **extra):
         id_ = uid(); folder = self.folder/id_; folder.mkdir()
-        request = {**body.model_dump(), "resolved_prompt": PREFIXES[body.kind]+body.prompt}
+        request = {**body.model_dump(mode='json'), "resolved_prompt": PREFIXES[body.kind]+body.prompt}
         if body.prompt_mode=='qwen' and body.prompt_seed is None:request['prompt_seed']=secrets.randbelow(2**31)
         (folder/"request.json").write_text(json.dumps(request), encoding="utf-8")
         job = {"id": id_, "status": "queued", "created_at": time.time(), **request,
@@ -175,11 +208,13 @@ class DiffusionJobs:
 
     def submit(self, body):
         caps = capabilities(self.root)
-        if not caps["ready"]: raise HTTPException(409, "Install the optional Stable Diffusion runtime and model using the setup commands shown in AI image studio")
+        if body.kind!='text_seal' and not caps["ready"]: raise HTTPException(409, "Install the optional Stable Diffusion runtime and model using the setup commands shown in AI image studio")
         with self.lock:
             if sum(j["status"] not in TERMINAL and not j.get('batch_id') for j in self.jobs.values()) >= 3:
                 raise HTTPException(409, "Three image runs are already queued; wait or cancel one")
-            manifest = json.loads((self.root/"models"/"sd-turbo"/"manifest.json").read_text(encoding="utf-8"))
+            manifest = ({'repository':'dataforge/text-seal','revision':'native-seal-v1','source_url':'https://github.com/ShobinSamS/dataforge-ai','license_url':None} if body.kind=='text_seal'
+                        else json.loads((self.root/"models"/"sd-turbo"/"manifest.json").read_text(encoding="utf-8")))
+            if body.kind=='text_seal':body=body.model_copy(update={'prompt_mode':'manual'})
             job = self.create_job(body,manifest,child_ids=[] if body.count>1 else None)
             self.pool.submit(self.run_batch if body.count>1 else self.run, job['id'])
             return self.get(job['id'])
@@ -220,7 +255,7 @@ class DiffusionJobs:
             if job['count']<=1 or job['status'] not in {'cancelled','failed'}:
                 raise HTTPException(409,'Resume is available for interrupted image batches')
             if job['completed']==job['count']:raise HTTPException(409,'All images are already complete')
-            if not capabilities(self.root)['ready']:raise HTTPException(409,'Install the Stable Diffusion runtime and model first')
+            if job['kind']!='text_seal' and not capabilities(self.root)['ready']:raise HTTPException(409,'Install the Stable Diffusion runtime and model first')
             if sum(j['status'] not in TERMINAL and not j.get('batch_id') for j in self.jobs.values())>=3:
                 raise HTTPException(409,'Three image runs are already queued; wait or cancel one')
             self.cancels[id_]=threading.Event();self.update(id_,status='queued',error=None)
@@ -239,6 +274,20 @@ class DiffusionJobs:
                 if acquired: break
             if cancel.is_set(): raise InterruptedError()
             image_started=time.monotonic()
+            if self.jobs[id_]['kind']=='text_seal':
+                from .seals import plan_seal_content,render_seal
+                job=self.get(id_);self.update(id_,status='running',stage='rendering_text_seal')
+                options=RuleOptions.model_validate(job.get('seal_options',{}));shape=options.seal_style
+                wide=shape in {'rectangle','professional','form','dated','text','nameplate','form_block'}
+                size=(512,130) if shape=='nameplate' else (512,300) if wide else (512,512)
+                content=plan_seal_content(options,job['seed'],'image-seal')
+                image,mask,details=render_seal(size,content,random.Random(job['seed']),options)
+                out=Image.new('RGBA',(512,512));out.alpha_composite(image,((512-image.width)//2,(512-image.height)//2))
+                out.save(folder/'image.png');out.save(folder/'raw.png')
+                self.update(id_,status='completed',step=job['steps'],sha256=hashlib.sha256((folder/'image.png').read_bytes()).hexdigest(),
+                    seal=details,rendering_engine='native-text-seal',metrics={'device':'cpu','elapsed_seconds':round(time.monotonic()-image_started,2),'image_wall_seconds':round(time.monotonic()-image_started,2),'peak_worker_rss_mb':0,'model_inference':False},
+                    image_url=f'/api/diffusion/jobs/{id_}/image',raw_image_url=f'/api/diffusion/jobs/{id_}/image?raw=true')
+                return
             if psutil.virtual_memory().available/1024**2 < 4500:
                 raise ValueError("Free at least 4.5 GB RAM before image generation; close other heavy apps and retry")
             self.update(id_, status="running")
@@ -258,6 +307,9 @@ class DiffusionJobs:
             if psutil.virtual_memory().available/1024**2<4500:
                 raise ValueError('Free at least 4.5 GB RAM before image generation; the generated prompt is kept for resume')
             self.update(id_,stage='generating_image')
+            if job['kind']=='signature_artwork':
+                guide=make_guide(folder,job['seed'],job.get('signature_text',''),job.get('signature_style','mixed'))
+                self.update(id_,signature_guide=guide)
             metrics = run_worker(folder, self.root/"models"/"sd-turbo", job, cancel,
                                  lambda step: self.update(id_, step=min(step, job["steps"])))
             if cancel.is_set(): raise InterruptedError()
@@ -265,14 +317,22 @@ class DiffusionJobs:
                 if opened.size != (512, 512): raise ValueError("Worker returned an unexpected image size")
                 image = opened.convert("RGBA")
             # Emblem transparency comes from the dark ink, retaining antialiasing.
-            if job["kind"] == "seal_artwork":
+            if job['kind']=='signature_artwork':
+                image,check=isolate_signature(image,guide['guide_bbox']);metrics.update(check)
+            elif job["kind"] == "seal_artwork":
                 from PIL import ImageOps
                 alpha = ImageOps.invert(ImageOps.grayscale(image)).point(lambda p: max(0, min(255, (p-30)*255//190)))
                 if alpha.getbbox() is None: raise ValueError("Generated emblem has no visible ink; try another prompt or seed")
                 image = Image.new("RGBA", image.size, "black"); image.putalpha(alpha)
             elif job["background"] != "preserve":
                 image = portrait_background(image, RuleOptions(portrait_background=job["background"], portrait_background_color=job["background_color"]), job["seed"])
+            if job['kind'] in {'signature_artwork','seal_artwork'}:
+                image,ink=colorize(image,InkAppearance.model_validate(job.get('ink',{})),job['seed']);metrics['ink_color']=ink
             image.save(folder/"image.png")
+            if job['kind']=='signature_artwork':
+                metrics['artwork_review_required']=True
+                metrics['transcription_verified']=False
+                metrics['artwork_warning']='One isolated ink group retained; inspect its shape. No exact transcription is available.'
             digest = hashlib.sha256((folder/"image.png").read_bytes()).hexdigest()
             metrics['image_wall_seconds']=round(time.monotonic()-image_started,2)
             metrics['prompt_planning_seconds']=job.get('prompt_planning_seconds',0)
@@ -293,6 +353,39 @@ class DiffusionJobs:
                 self.update(id_, status="cancelling")
             return self.get(id_)
 
+    def recolor(self,id_,appearance):
+        """Create a new completed variant, retaining source pixels and assets."""
+        with self.lock:
+            source=self.get(id_)
+            if source['status'] not in TERMINAL:raise HTTPException(409,'Wait for this run to stop before making color variants')
+            if source['kind'] not in {'signature_artwork','seal_artwork','text_seal'}:raise HTTPException(409,'Recoloring applies to transparent signature or seal ink')
+            items=[j for j in source.get('items',[source]) if j['status']=='completed']
+            if not items:raise HTTPException(409,'No completed ink images to recolor')
+            body=DiffusionRequest.model_validate({k:source[k] for k in DiffusionRequest.model_fields if k in source})
+            body=body.model_copy(update={'count':len(items),'ink':appearance})
+            manifest={'repository':source['model'],'revision':source['revision'],'source_url':source['source_url'],'license_url':source.get('license_url')}
+            if len(items)>1:
+                parent=self.create_job(body,manifest,child_ids=[],source_job_id=id_)
+            for index,item in enumerate(items):
+                child_body=body.model_copy(update={'count':1,'seed':item['seed']})
+                extra={'source_job_id':item['id']}
+                if len(items)>1:extra.update(batch_id=parent['id'],batch_index=index)
+                child=self.create_job(child_body,manifest,**extra);folder=self.folder/child['id']
+                with Image.open(self.folder/item['id']/'image.png') as opened:
+                    image,ink=colorize(opened.convert('RGBA'),appearance,item['seed'])
+                image.save(folder/'image.png')
+                shutil.copyfile(self.folder/item['id']/'raw.png',folder/'raw.png')
+                for name in ('guide.png',):
+                    if (self.folder/item['id']/name).exists():shutil.copyfile(self.folder/item['id']/name,folder/name)
+                provenance={k:item[k] for k in ('generated_prompt','resolved_prompt','prompt_seed','prompt_engine','prompt_model','prompt_model_digest','signature_guide','seal','rendering_engine') if k in item}
+                metrics={**item.get('metrics',{}),'ink_color':ink,'recolor_only':True,'model_inference':False,'elapsed_seconds':0,'image_wall_seconds':0,'peak_worker_rss_mb':0}
+                self.update(child['id'],**provenance,status='completed',step=child['steps'],metrics=metrics,sha256=hashlib.sha256((folder/'image.png').read_bytes()).hexdigest(),
+                    image_url=f'/api/diffusion/jobs/{child["id"]}/image',raw_image_url=f'/api/diffusion/jobs/{child["id"]}/image?raw=true')
+                if len(items)>1:parent['child_ids'].append(child['id'])
+            if len(items)>1:
+                self.update(parent['id'],status='completed',step=parent['steps']);return self.get(parent['id'])
+            return self.get(child['id'])
+
     def save(self, id_, index=None):
         with self.lock:
             job = self.get(id_)
@@ -311,9 +404,10 @@ class DiffusionJobs:
                 try: return portrait_metadata(self.root, job["asset"]["id"])
                 except (ValueError, HTTPException, FileNotFoundError): pass
             with Image.open(self.folder/id_/"image.png") as image:
-                asset = store_portrait(image.copy(), self.root, source="local_stable_diffusion",
-                    license_note="SD-Turbo generated image; see the model license for permitted use",
-                    attribution=json.dumps({k:job[k] for k in ("model", "revision", "source_url", "license_url", "kind", "prompt", "resolved_prompt", "seed", "steps", "sha256",'prompt_mode','generated_prompt','prompt_seed','prompt_engine','prompt_model','prompt_model_digest') if k in job}))
+                native=job['kind']=='text_seal'
+                asset = store_portrait(image.copy(), self.root, source="local_text_seal" if native else "local_stable_diffusion",
+                    license_note="Locally rendered fictional text seal; no image model used" if native else "SD-Turbo generated image; see the model license for permitted use",
+                    attribution=json.dumps({k:job[k] for k in ("model", "revision", "source_url", "license_url", "kind", "prompt", "resolved_prompt", "seed", "steps", "sha256",'prompt_mode','generated_prompt','prompt_seed','prompt_engine','prompt_model','prompt_model_digest','prompt_reused','prompt_warning','ink','signature_guide','seal','seal_options','source_job_id','rendering_engine','metrics') if k in job}))
             self.update(id_, asset=asset)
             return asset
 
@@ -361,6 +455,8 @@ def diffusion_router(jobs):
     def save(id_: str, index: int | None = Query(default=None,ge=0,le=99)): return jobs.save(id_,index)
     @router.post('/jobs/{id_}/resume')
     def resume(id_: str):return jobs.resume(id_)
+    @router.post('/jobs/{id_}/recolor')
+    def recolor(id_:str,body:InkAppearance):return jobs.recolor(id_,body)
     @router.get('/jobs/{id_}/download')
     def download(id_: str):
         path=jobs.download(id_)

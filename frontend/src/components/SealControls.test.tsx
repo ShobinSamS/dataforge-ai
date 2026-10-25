@@ -22,6 +22,40 @@ const field = {
   box: [0, 0, 300, 200],
 } as Region;
 
+it("applies complete corporate reference presets without changing the selected ink", () => {
+  const set = vi.fn();
+  render(
+    <SealControls
+      field={field}
+      options={{ ...defaultRuleOptions, text_color: "#173574" }}
+      set={set}
+    />,
+  );
+  fireEvent.change(screen.getByLabelText("Seal reference layout"), {
+    target: { value: "shipping" },
+  });
+  expect(set).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      seal_style: "form_block",
+      seal_text_mode: "custom",
+      seal_border: "double",
+      seal_body_format: "REG NO: {reference}\nTO:\nPRODUCT:\nBATCH:",
+      seal_artwork_ids: [],
+    }),
+  );
+  expect(set.mock.calls[0][0]).not.toHaveProperty("text_color");
+  fireEvent.change(screen.getByLabelText("Seal reference layout"), {
+    target: { value: "corporate" },
+  });
+  expect(set).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      seal_style: "corporate",
+      seal_center_motif: "shield",
+      seal_border: "rosettes",
+    }),
+  );
+});
+
 it("offers random, static and custom wording with explicit repetition control", () => {
   const set = vi.fn();
   const view = render(

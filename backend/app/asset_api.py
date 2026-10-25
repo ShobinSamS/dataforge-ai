@@ -65,7 +65,9 @@ def generate_asset(body: AssetRequest, root: Path):
     size = (body.width, body.height)
     with CPU_LOCK:
         if kind == "signature":
-            layer, mask, details = render_signature(size, value, rng, options)
+            artwork,provenance=load_emblem(root,None,options.signature_artwork_ids,body.seed)
+            layer, mask, details = render_signature(size, value, rng, options,artwork)
+            if provenance:details['asset_provenance']=provenance
         elif kind == "seal":
             content = plan_seal_content(options, body.seed, "asset", literal=body.value)
             emblem,provenance=load_emblem(root,options.seal_artwork_id,options.seal_artwork_ids,body.seed)

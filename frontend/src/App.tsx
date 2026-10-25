@@ -78,6 +78,9 @@ import Dashboard from "./pages/Dashboard";
 import TextStudio from "./pages/TextStudio";
 import McpTools from "./pages/McpTools";
 import DiffusionPanel from "./components/DiffusionPanel";
+import DocumentLab from "./pages/DocumentLab";
+import GenerationExtras from "./components/GenerationExtras";
+import SampleAnnotationEditor from "./components/SampleAnnotationEditor";
 import { Badge, Empty, Stat } from "./components/ui";
 import type { Page } from "./types";
 
@@ -88,6 +91,7 @@ const navigation = [
       ["Dashboard", LayoutDashboard],
       ["Template library", Files],
       ["Generation studio", Sparkles],
+      ["Document lab", FlaskConical],
       ["Text datasets", FileText],
       ["Dataset gallery", Database],
     ],
@@ -399,9 +403,13 @@ export default function App() {
     </select>
   );
   const title: Partial<Record<Page, [string, string]>> = {
+    "Document lab": [
+      "Document lab",
+      "Structured fictional packs, realistic captures and reviewed labels.",
+    ],
     "AI image studio": [
       "AI image studio",
-      "Generate fictional portraits, seal emblems and stamp illustrations locally.",
+      "Generate single signatures, complete text seals, portraits and artwork locally.",
     ],
     Dashboard: [
       "Your data. New possibilities.",
@@ -677,8 +685,9 @@ export default function App() {
                 <section className="panel form-panel">
                   <h2>Generate images for your templates</h2>
                   <p className="field-hint">
-                    Create reusable portrait, seal or stamp image pools, then
-                    select the completed batch from a region's artwork controls.
+                    Create single-signature, portrait or artwork pools, or
+                    download complete text seals with exact wording and color
+                    variations.
                   </p>
                   <DiffusionPanel />
                 </section>
@@ -931,6 +940,7 @@ export default function App() {
                             ))}
                           </select>
                         </label>
+                        <details className="option-section"><summary>Position and size</summary>
                         <div className="coordinate-grid">
                           {["X", "Y", "W", "H"].map((v, i) => (
                             <label key={v}>
@@ -948,6 +958,7 @@ export default function App() {
                             </label>
                           ))}
                         </div>
+                        </details>
                         <RegionRuleControls
                           key={`${selectedTemplate.id}:${field.id}`}
                           field={field}
@@ -1168,6 +1179,11 @@ export default function App() {
                 />
                 <div className="section-divider" />
                 <h3>Image variation</h3>
+                <GenerationExtras
+                  config={config}
+                  template={selectedTemplate}
+                  onChange={(patch) => setConfig((c) => ({ ...c, ...patch }))}
+                />
                 <p className="muted">
                   Geometry transforms apply to images and masks together.
                 </p>
@@ -1871,6 +1887,7 @@ export default function App() {
             </section>
           )}
           {page === "Text datasets" && <TextStudio />}
+          {page === "Document lab" && <DocumentLab />}
           <footer className="footer">
             <span>
               <Layers3 size={13} />
@@ -1910,53 +1927,21 @@ export default function App() {
             </div>
             <Dialog.Description className="muted">
               Generated values and geometry-derived bounding boxes. Sample
-              annotation editing is planned; adjust source regions and
-              regenerate for corrections.
+              labels can be edited below. Exclude a sample or regenerate only
+              this document.
             </Dialog.Description>
             {sampleSelected && (
-              <div className="preview-grid">
-                <div className="annotated-preview">
-                  <img
-                    src={`/api/samples/${sampleSelected.id}/image`}
-                    alt="Generated document"
-                  />
-                  {sampleSelected.annotations.map((a) => (
-                    <div
-                      key={a.region_id}
-                      title={`${a.class}: ${a.text}`}
-                      style={{
-                        left: `${(a.bbox[0] / (templates.find((t) => t.id === selectedJob?.template_id)?.width || 1350)) * 100}%`,
-                        top: `${(a.bbox[1] / (templates.find((t) => t.id === selectedJob?.template_id)?.height || 960)) * 100}%`,
-                        width: `${(a.bbox[2] / (templates.find((t) => t.id === selectedJob?.template_id)?.width || 1350)) * 100}%`,
-                        height: `${(a.bbox[3] / (templates.find((t) => t.id === selectedJob?.template_id)?.height || 960)) * 100}%`,
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="preview-fields">
-                  {sampleSelected.annotations.map((a) => (
-                    <div key={a.region_id}>
-                      <Badge>{a.class}</Badge>
-                      <strong>{a.text}</strong>
-                      <small>[{a.bbox.join(", ")}]</small>
-                    </div>
-                  ))}
-                  <Badge
-                    status={
-                      sampleSelected.validation.passed ? "completed" : "failed"
-                    }
-                  >
-                    {sampleSelected.validation.passed
-                      ? "Automated checks passed"
-                      : "Rejected"}
-                  </Badge>
-                  {sampleSelected.validation.errors.map((e) => (
-                    <p key={e} className="inline-error">
-                      {e}
-                    </p>
-                  ))}
-                </div>
-              </div>
+              <SampleAnnotationEditor
+                key={sampleSelected.id}
+                endpoint={`/samples/${sampleSelected.id}/annotations`}
+                imageUrl={`/api/samples/${sampleSelected.id}/image`}
+                regenerateEndpoint={`/samples/${sampleSelected.id}/regenerate`}
+                onSaved={() => {
+                  void qc.invalidateQueries({ queryKey: ["samples"] });
+                  void qc.invalidateQueries({ queryKey: ["jobs"] });
+                  void qc.invalidateQueries({ queryKey: ["quality"] });
+                }}
+              />
             )}
           </Dialog.Content>
         </Dialog.Portal>

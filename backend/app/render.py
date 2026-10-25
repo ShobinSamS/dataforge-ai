@@ -19,6 +19,8 @@ from .seal_artwork import load_emblem
 from .stamps import plan_stamp, render_stamp, plan_rubber_stamp, render_rubber_stamp, stamp_artwork
 from .colors import choose_color
 from .addresses import generate_address
+from .consistency import apply_links
+from .capture import capture_plan,capture_image,warp_mask
 
 
 def font(size: int, font_id: str = "auto"):
@@ -74,7 +76,7 @@ def fictional_values(regions: list[Region], seed: int, config: GenerationConfig 
             result[region.id] = shared["name"]
         else:
             result[region.id] = shared[region.kind.value]
-    return result
+    return apply_links(result,config.field_links if config else [],regions)
 
 
 def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, style=None, qr_padding: int = 0) -> tuple[Image.Image, Image.Image]:
@@ -82,6 +84,9 @@ def asset(kind: str, size: tuple[int, int], value: str, rng: random.Random, styl
     layer = Image.new("RGBA", size)
     d = ImageDraw.Draw(layer)
     ink = choose_color(style,rng,"text") if style else (32, 60, 102, 255)
+    if style and style.writing_style=='handwritten' and kind in {'text','name','address','date','identifier','email','phone'}:
+        from .handwriting import handwritten
+        return handwritten(size,value,ink,rng.getrandbits(64),style.font_id)
     if kind == "drawing":
         points=style.drawing_points if style else []
         if not points: raise ValueError("Draw at least one stroke before rendering")
@@ -200,7 +205,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
             mask=layer.getchannel("A").point(lambda p:255 if p else 0)
         else:
             style=r.rule_options.model_copy(deep=True)
-            if r.kind!="signature" and style.font_id=="auto" and style.writing_style=="cursive": style.font_id=cursive_font_id()
+            if r.kind!="signature" and style.font_id=="auto" and style.writing_style in {"cursive","handwritten"}: style.font_id=cursive_font_id()
             if r.kind!="signature" and style.font_id=="auto" and r.source_font: style.font_id=native_font_id(r.source_font)
             if r.kind!="signature":style.font_id=resolve_font_weight(style.font_id,style.font_weight)
             if r.kind!="signature" and style.font_size is None and r.source_font_size: style.font_size=max(6,min(200,round(r.source_font_size)))
@@ -210,7 +215,9 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
             if r.kind=="signature":
                 if config.signature_style_override:style.signature_style=config.signature_style_override
                 if config.signature_content_override:style.signature_content=config.signature_content_override
-                layer,mask,signature_details[r.id]=render_signature((w,h),values[r.id],rng,style)
+                artwork,provenance=load_emblem(asset_root,None,style.signature_artwork_ids,seed)
+                layer,mask,signature_details[r.id]=render_signature((w,h),values[r.id],rng,style,artwork)
+                if provenance:asset_provenance[r.id]=provenance
                 values[r.id]=signature_details[r.id]["text"]
             elif r.kind in {"stamp", "rubber_stamp"}:
                 literal=r.rule[8:] if r.rule.startswith("literal:") else None
@@ -252,6 +259,8 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
         noise = np.random.default_rng(seed).normal(0,config.noise_sigma,pixels[:,:,:3].shape).astype(np.float32)
         pixels[:,:,:3]=np.clip(pixels[:,:,:3]+noise,0,255)
         image = Image.fromarray(pixels.astype(np.uint8))
+    capture=capture_plan(image.size,config.capture_profile,seed,config.capture_strength)
+    image=capture_image(image,capture)
     dest.mkdir(parents=True,exist_ok=True)
     annotations = []
     errors = []
@@ -264,6 +273,8 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
         original_area = int(np.count_nonzero(np.asarray(full)))
         if angle:
             full = full.rotate(angle,resample=Image.Resampling.NEAREST)
+        visible_area=int(np.count_nonzero(np.asarray(full)))
+        full=warp_mask(full,capture)
         bounds = full.getbbox()
         if bounds is None:
             errors.append(f"empty_mask:{r.id}")
@@ -271,7 +282,7 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
         x0,y0,x1,y1 = bounds
         if x0 == 0 or y0 == 0 or x1 == width or y1 == height:
             errors.append(f"edge_clipping:{r.id}")
-        visible = int(np.count_nonzero(np.asarray(full))) / max(1,original_area)
+        visible = visible_area / max(1,original_area)
         if visible < .95:
             errors.append(f"visibility:{r.id}")
         mask_name = f"mask_{r.id}.png"
@@ -291,5 +302,5 @@ def render_sample(source: Path, regions: list[Region], config: GenerationConfig,
     image.save(image_path,**({"dpi":dpi} if canvas and dpi else {}))
     return {"image":image,"annotations":annotations,"errors":errors,"width":width,"height":height,
             "sha256":hashlib.sha256(image_path.read_bytes()).hexdigest(),"seed":seed,
-            "transform":{"rotation":angle,"blur":blurred,"noise_sigma":config.noise_sigma},
+            "transform":{"rotation":angle,"blur":blurred,"noise_sigma":config.noise_sigma,"capture":capture},
             "erased_regions":[{"region_id":r.id,"box":list(r.box),"coordinate_space":"source_page"} for r in regions if region_action(r)=="erase"]}

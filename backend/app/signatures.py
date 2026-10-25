@@ -218,7 +218,7 @@ def _fit_expressive(size,plan,rng,style,scale):
     return layer,connections
 
 
-def render_signature(size,value,rng:random.Random,style:RuleOptions):
+def render_signature(size,value,rng:random.Random,style:RuleOptions,artwork=None):
     requested=style.signature_content
     resolved=content_mode(style,rng)
     style=style.model_copy(update={"signature_content":resolved,"text_color":choose_color(style,rng,"signature")})
@@ -227,7 +227,18 @@ def render_signature(size,value,rng:random.Random,style:RuleOptions):
     weight_rng=random.Random();weight_rng.setstate(rng.getstate())
     weight_rng=random.Random(weight_rng.getrandbits(64)^0x5349474E)
     weight,factor=weight_rng.choices((("normal",1.0),("medium",1.65),("bold",2.4)),weights=(60,25,15))[0] if style.font_weight=="auto" else (style.font_weight,1.0)
-    layer,mask,info=_render_signature(size,value,rng,style)
+    if artwork is None:
+        layer,mask,info=_render_signature(size,value,rng,style)
+    else:
+        from PIL import ImageOps
+        from .seal_artwork import artwork_alpha
+        tile=artwork.convert('RGBA')
+        alpha=artwork_alpha(tile)
+        if not alpha.getbbox():raise ValueError('Signature artwork has no visible ink')
+        alpha=alpha.crop(alpha.getbbox());alpha=ImageOps.contain(alpha,(max(1,int(size[0]*.9)),max(1,int(size[1]*.8))))
+        layer=Image.new('RGBA',size);ink=Image.new('RGBA',alpha.size,style.text_color);ink.putalpha(alpha)
+        layer.alpha_composite(ink,((size[0]-alpha.width)//2,(size[1]-alpha.height)//2));mask=layer.getchannel('A')
+        info={'style':'generated_artwork','text':'','engine':'image-pool','transcription_verified':False,'lettering_only':False}
     if factor>1:
         import cv2
         alpha=layer.getchannel("A")
@@ -268,7 +279,7 @@ def _render_signature(size,value,rng:random.Random,style:RuleOptions):
     plan=signature_plan(value,rng,style)
     if plan["style"] in PEN_STYLES and all(c.isascii() for c in plan["text"]):
         if len(plan["text"])>128:raise ValueError("Pen signatures support up to 128 signing characters")
-        layer,info=render_pen_signature((W,H),plan["text"],plan["style"],rng,style.text_color,_curve,style.font_weight=="bold")
+        layer,info=render_pen_signature((W,H),plan["text"],plan["style"],rng,style.text_color,_curve,style.font_weight=="bold",pressure=style.ink_finish!='clean')
         if scale>1:layer=layer.resize((w,h),Image.Resampling.LANCZOS)
         mask=layer.getchannel("A").point(lambda p:255 if p else 0)
         info.update(style=plan["style"],text=plan["text"],font_id="pen-paths",connection_count=info["stroke_count"],generator_version="signature-v3")

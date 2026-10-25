@@ -39,7 +39,7 @@ def test_tool_catalog_schemas_resources_and_hints():
         async with create_connected_server_and_client_session(server) as session:
             tools = (await session.list_tools()).tools
             names = {t.name for t in tools}
-            assert len(names) == len(tools) == 52
+            assert len(names) == len(tools) == 64
             assert {"generate_signature", "generate_stamp", "generate_seal", "generate_qr", "generate_barcode",
                     "upload_template", "detect_visual_regions", "analyze_pii", "create_text_dataset", "export_dataset", "create_blank_template", "preview_canvas", "generate_address", "list_address_countries"} <= names
             for tool in tools:
@@ -190,7 +190,7 @@ def test_streamable_http_is_real_mcp_with_host_protection():
                     async with ClientSession(read, write) as session:
                         result = await session.initialize()
                         assert result.serverInfo.name == "DataForge AI"
-                        assert len((await session.list_tools()).tools) == 52
+                        assert len((await session.list_tools()).tools) == 64
             async with factory() as client:
                 response = await client.post("http://untrusted.invalid:8001/mcp", json={})
                 assert response.status_code == 421
@@ -204,7 +204,7 @@ def test_stdio_from_unrelated_directory_has_clean_protocol(tmp_path):
         async with stdio_client(params) as (read, write):
             async with ClientSession(read, write) as session:
                 assert (await session.initialize()).serverInfo.name == "DataForge AI"
-                assert len((await session.list_tools()).tools) == 52
+                assert len((await session.list_tools()).tools) == 64
                 assert (await session.read_resource("dataforge://guide")).contents
     asyncio.run(run())
 

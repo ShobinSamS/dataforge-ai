@@ -62,11 +62,12 @@ class RuleOptions(Contract):
     background_mode: Literal["auto","solid"] = "auto"
     background_color: str = Field(default="#ffffff",pattern=r"^#[0-9a-fA-F]{6}$")
     cleanup_mode: Literal["full_region","ink_only"] = "full_region"
-    writing_style: Literal["printed","cursive"] = "printed"
+    writing_style: Literal["printed","cursive","handwritten"] = "printed"
     code_background: Literal["transparent","white"] = "transparent"
     signature_style: SignatureStyle = "mixed"
     signature_content: Literal["current","name","alphabet","mixed"] = "current"
     signature_thickness: float = Field(default=1,ge=1,le=5,allow_inf_nan=False)
+    signature_artwork_ids: list[str] = Field(default_factory=list,max_length=100)
     ink_opacity_mode: Literal["random","fixed"] = "random"
     ink_opacity: float = Field(default=1,ge=.05,le=1,allow_inf_nan=False)
     ink_opacity_min: float = Field(default=.45,ge=.05,le=1,allow_inf_nan=False)
@@ -140,7 +141,7 @@ class RuleOptions(Contract):
         pattern_parts(value)
         return value
 
-    @field_validator("portrait_asset_ids","seal_artwork_ids")
+    @field_validator("portrait_asset_ids","seal_artwork_ids","signature_artwork_ids")
     @classmethod
     def asset_ids(cls, values):
         import re
@@ -226,6 +227,15 @@ class Review(Contract):
     revision: int = Field(ge=1)
 
 
+class FieldLink(Contract):
+    target: str = Field(min_length=1,max_length=80)
+    sources: list[str] = Field(min_length=1,max_length=30)
+    rule: Literal['copy','age','after_date','sum'] = 'copy'
+    separator: str = Field(default=' | ',max_length=20)
+    days: int = Field(default=365,ge=1,le=36500)
+    as_of: date = date(2026,1,1)
+
+
 class GenerationConfig(Contract):
     template_id: str
     name: str = Field(default="Certificate dataset", min_length=1, max_length=100)
@@ -235,6 +245,9 @@ class GenerationConfig(Contract):
     rotation_probability: float = Field(default=.15, ge=0, le=1)
     rotation_degrees: float = Field(default=3, ge=0, le=8)
     noise_sigma: float = Field(default=0, ge=0, le=12)
+    capture_profile: Literal['none','phone','scanner','photocopy','cropped_scan','mixed'] = 'none'
+    capture_strength: float = Field(default=.5,ge=0,le=1)
+    field_links: list[FieldLink] = Field(default_factory=list,max_length=50)
     signatures: bool = True
     signature_style_override: Literal["mixed"] | None = None
     signature_content_override: Literal["current","name","alphabet","mixed"] | None = None

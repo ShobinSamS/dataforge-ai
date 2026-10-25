@@ -78,7 +78,7 @@ returns PNG, mask and metadata. It no longer interprets `stamp` as a seal alias.
 MCP `generate_stamp` now generates a paper stamp (optional `caption`, options,
 width, height, seed). `generate_rubber_stamp` generates the separate ink-only
 mark (optional `text`, options, dimensions, seed). `generate_seal` remains the
-existing seal tool. There are now 52 tools, including image-pool batch imports, blank canvases and addresses;
+existing seal tool. There are now 64 tools, including image-pool batch imports, blank canvases and addresses;
 [MCP setup](mcp.md).
 
 Relevant RuleOptions fields are `stamp_style`, `stamp_palette`, `stamp_issuer`,

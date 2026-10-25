@@ -14,6 +14,42 @@ afterEach(() => {
   cleanup();
   vi.resetAllMocks();
 });
+
+it("marks older signature sheets so they are not confused with the new guided output", async () => {
+  const legacy = {
+    id: "old",
+    kind: "signature_artwork",
+    status: "completed",
+    prompt: "Old free generation",
+    seed: 42,
+    steps: 2,
+    step: 2,
+    image_url: "/old.png",
+  };
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.endsWith("capabilities")
+      ? { ready: true, available_ram_mb: 6000 }
+      : [legacy],
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: { queries: { retry: false, gcTime: 0 } },
+        })
+      }
+    >
+      <DiffusionPanel kind="signature_artwork" />
+    </QueryClientProvider>,
+  );
+  const button = await screen.findByRole("button", {
+    name: /Signature · older generation/,
+  });
+  fireEvent.click(button);
+  await screen.findByText(
+    /Older text-to-image preview: this file may contain multiple signatures/,
+  );
+});
 const job = {
   id: "job1",
   kind: "portrait",
@@ -307,4 +343,133 @@ it("requires local Qwen for randomized mode and keeps manual generation availabl
     false,
   );
   expect(screen.getByLabelText("Image description")).toBeTruthy();
+});
+
+it("offers exact text-seal batches without requiring either AI model", async () => {
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.endsWith("capabilities")
+      ? {
+          ready: false,
+          runtime: false,
+          model_installed: false,
+          setup_commands: [],
+        }
+      : [],
+  );
+  vi.mocked(post).mockResolvedValue({
+    ...job,
+    id: "seal1",
+    kind: "text_seal",
+    status: "queued",
+  });
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: { queries: { retry: false, gcTime: 0 } },
+        })
+      }
+    >
+      <DiffusionPanel />
+    </QueryClientProvider>,
+  );
+  fireEvent.change(screen.getByLabelText("Generate artwork for"), {
+    target: { value: "text_seal" },
+  });
+  expect(screen.queryByLabelText("Prompt mode")).toBeNull();
+  expect(screen.queryByLabelText("Diffusion steps")).toBeNull();
+  fireEvent.change(screen.getByLabelText("Seal reference layout"), {
+    target: { value: "professional" },
+  });
+  fireEvent.change(screen.getByLabelText("Seal ink mode"), {
+    target: { value: "manual" },
+  });
+  fireEvent.change(screen.getByLabelText("Seal ink", { exact: true }), {
+    target: { value: "#173574" },
+  });
+  const button = screen.getByText("Generate 10 images");
+  expect((button as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(button);
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      "/diffusion/jobs",
+      expect.objectContaining({
+        kind: "text_seal",
+        prompt_mode: "manual",
+        count: 10,
+        seal_options: expect.objectContaining({
+          seal_style: "professional",
+          color_mode: "manual",
+          text_color: "#173574",
+        }),
+      }),
+    ),
+  );
+});
+
+it("submits one-signature guide settings and recolors the result without generating again", async () => {
+  const signature = { ...job, kind: "signature_artwork" };
+  let rows: (typeof signature)[] = [];
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.endsWith("capabilities")
+      ? { ready: true, available_ram_mb: 6000 }
+      : rows,
+  );
+  vi.mocked(post).mockImplementation(async (path) => {
+    if (path.endsWith("/recolor")) {
+      const variant = { ...signature, id: "color1" };
+      rows = [variant, ...rows];
+      return variant;
+    }
+    rows = [signature];
+    return signature;
+  });
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: { queries: { retry: false, gcTime: 0 } },
+        })
+      }
+    >
+      <DiffusionPanel kind="signature_artwork" />
+    </QueryClientProvider>,
+  );
+  fireEvent.change(screen.getByLabelText("Prompt mode"), {
+    target: { value: "manual" },
+  });
+  await screen.findByText(/SD-Turbo ready/);
+  fireEvent.change(screen.getByLabelText("Signature guide text (optional)"), {
+    target: { value: "Mira Dev" },
+  });
+  fireEvent.change(screen.getByLabelText("Single-signature guide style"), {
+    target: { value: "enclosed" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "1 image" }));
+  fireEvent.click(screen.getByText("Generate image preview"));
+  await screen.findByText("Recolor this image");
+  expect(post).toHaveBeenCalledWith(
+    "/diffusion/jobs",
+    expect.objectContaining({
+      signature_text: "Mira Dev",
+      signature_style: "enclosed",
+    }),
+  );
+  fireEvent.click(screen.getByText("Change ink color without regenerating"));
+  fireEvent.change(screen.getByLabelText("Recolor ink mode"), {
+    target: { value: "manual" },
+  });
+  fireEvent.change(screen.getByLabelText("Recolor ink", { exact: true }), {
+    target: { value: "#c42035" },
+  });
+  fireEvent.click(screen.getByText("Recolor this image"));
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      "/diffusion/jobs/job1/recolor",
+      expect.objectContaining({ color_mode: "manual", text_color: "#c42035" }),
+    ),
+  );
+  expect(
+    vi.mocked(post).mock.calls.filter(([path]) => path === "/diffusion/jobs"),
+  ).toHaveLength(1);
 });

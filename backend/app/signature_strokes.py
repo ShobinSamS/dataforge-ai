@@ -107,18 +107,23 @@ LOOPED_CAPITALS={
 }
 
 
-def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
+def render_pen_signature(size,text,family,rng,ink,curve,bold=False,pressure=True):
     """Return transparent layer plus morphology metadata, using only local paths."""
     stacked=family=="stacked"
     cap=rng.uniform(95,155);body=rng.uniform(.38,.82)
     compression=rng.uniform(.55,1.0);slant=rng.uniform(-.05,.6)
     angle=rng.uniform(-.15,.12);overlap=rng.uniform(.64,.98)
-    ornamental=family in {"enclosed","interwoven"}
+    ornamental=family in {"enclosed","interwoven"} or (pressure and family in {'terminal_loop','initial_bridge'} and rng.random()<.65)
     if ornamental:
         body=rng.uniform(.32,.52);compression=rng.uniform(.55,.78)
         overlap=rng.uniform(.38,.58);slant=rng.uniform(.22,.6)
     angular=family in {"gestural","crossed"} and rng.random()<.5
     alternate=rng.randrange(2);width=rng.uniform(2.1,3.4)*(1.6 if bold else 1)
+    # A writer has one coherent rhythm. Curvature and pen speed vary the nib
+    # within that rhythm, without injecting disconnected scribble strokes.
+    rhythm=rng.uniform(.7,1.3) if pressure else 1
+    phase=rng.uniform(0,2*pi) if pressure else 0
+    movement=0
     resolution=3
     canvas=Image.new("RGBA",(max(1600,len(text)*150+600)*resolution,850*resolution));draw=ImageDraw.Draw(canvas)
     strokes=[];first_ends=[];capital_boxes=[];last=None;lift_count=0
@@ -132,7 +137,29 @@ def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
         return result
 
     def pen(points):
-        def paint(controls):curve(draw,tuple((p[0]*resolution,p[1]*resolution) for p in controls),ink,max(2,round(width*resolution)))
+        nonlocal movement
+        def paint(controls):
+            nonlocal movement
+            if not pressure:
+                curve(draw,tuple((p[0]*resolution,p[1]*resolution) for p in controls),ink,max(2,round(width*resolution)))
+                return
+            import math
+            # Continuous pressure across spline segments, lighter fast returns
+            # and a slight rounded ink dwell at tight bends.
+            a,b,c,d=controls
+            prev=None
+            length=max(1,sum(math.dist(controls[i],controls[i+1]) for i in range(3)))
+            steps=max(12,min(120,round(length*resolution/2)))
+            for i in range(steps+1):
+                t=i/steps
+                point=tuple(((1-t)**3*a[k]+3*(1-t)**2*t*b[k]+3*(1-t)*t*t*c[k]+t**3*d[k])*resolution for k in (0,1))
+                dx=3*((1-t)**2*(b[0]-a[0])+2*(1-t)*t*(c[0]-b[0])+t*t*(d[0]-c[0]))
+                dy=3*((1-t)**2*(b[1]-a[1])+2*(1-t)*t*(c[1]-b[1])+t*t*(d[1]-c[1]))
+                speed=math.hypot(dx,dy)/length
+                nib_pressure=.85+.22*sin(phase+movement*rhythm)+.18*(1-min(1.7,speed))
+                nib=max(1,round(width*resolution*nib_pressure))
+                if prev is not None:draw.line((prev,point),fill=ink,width=nib)
+                prev=point;movement+=length/steps*.008
         if len(points)==2:
             a,b=points;points=[a,(a[0]+(b[0]-a[0])/3,a[1]+(b[1]-a[1])/3),(a[0]+2*(b[0]-a[0])/3,a[1]+2*(b[1]-a[1])/3),b]
             paint(points);strokes.append(points);return
@@ -226,4 +253,5 @@ def render_pen_signature(size,text,family,rng,ink,curve,bold=False):
         "allograph_variant":alternate,"corner_style":"angular" if angular else "rounded",
         "capital_form":"looped" if ornamental else "standard",
         "terminal":ornament,"pen_lifts":lift_count+line,"stroke_count":len(strokes),
+        "pressure_model":"continuous-speed-v2" if pressure else "uniform-v1","rhythm":round(rhythm,3),
         "has_flourish":ornament!="none","has_wave":family=="initial_bridge","lettering_only":ornament=="none"}

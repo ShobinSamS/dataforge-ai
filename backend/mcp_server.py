@@ -22,7 +22,9 @@ from .app.document_analysis import AnalysisRequest, SourceTable
 from .app.document_rules import InterpretRuleRequest
 from .app.schemas import Region
 from .app.canvas import CanvasRequest,CanvasPreview
-from .app.diffusion import DiffusionRequest
+from .app.diffusion import DiffusionRequest,InkAppearance
+from .app.document_lab import LabConfig
+from .app.sample_editing import SampleEdit
 
 ROOT = Path(__file__).resolve().parents[1]
 Id = Annotated[str, Field(min_length=1, max_length=80, pattern=r"^[a-zA-Z0-9_-]+$")]
@@ -403,6 +405,11 @@ def create_server(api_url="http://127.0.0.1:8000", *, port=8001, client=None):
         """Queue 1–100 offline 512x512 images via request.count. Set prompt_mode=qwen to turn the prompt brief into a fresh local-Qwen description per image; prompt_seed optionally fixes variation planning. Manual mode uses exact text. Distinct image seeds and recorded prompts support reproduction. Poll get_image_generation for progress and ZIP URLs."""
         return await bridge.json("POST", "/api/diffusion/jobs", request)
 
+    @mcp.tool(annotations=WRITE)
+    async def recolor_generated_ink(job_id:Id,appearance:InkAppearance) -> dict[str,Any]:
+        """Create a new color variant of completed signature/seal ink or a completed batch. Preserves shape, alpha, source jobs and saved assets; runs no image model."""
+        return await bridge.json('POST',f'/api/diffusion/jobs/{job_id}/recolor',appearance)
+
     @mcp.tool(annotations=READ)
     async def list_image_generations() -> list[dict[str, Any]]:
         """List up to 100 recent diffusion previews and saved asset IDs."""
@@ -433,6 +440,61 @@ def create_server(api_url="http://127.0.0.1:8000", *, port=8001, client=None):
         """Ask local Qwen for one sample image description from request.prompt as a brief. Generates no image and saves no job. Preview is illustrative; normal runs create new variations unless prompt_seed is fixed."""
         return await bridge.json("POST",'/api/diffusion/prompts/preview',request)
 
+    @mcp.tool(annotations=WRITE)
+    async def create_document_packs(config:LabConfig) -> dict[str,Any]:
+        """Queue fictional multi-page A4 invoices/forms with grouped splits, controlled rates, capture effects and exact renderer labels."""
+        return await bridge.json('POST','/api/document-lab/jobs',config)
+
+    @mcp.tool(annotations=READ)
+    async def list_document_pack_runs() -> list[dict[str,Any]]:
+        """List local document pack runs and progress."""
+        return await bridge.json('GET','/api/document-lab/jobs')
+
+    @mcp.tool(annotations=READ)
+    async def get_document_pack_run(job_id:Id) -> dict[str,Any]:
+        """Read progress, page preview URLs, split membership and completed ZIP download URL."""
+        return await bridge.json('GET',f'/api/document-lab/jobs/{job_id}')
+
+    @mcp.tool(annotations=WRITE)
+    async def cancel_document_pack_run(job_id:Id) -> dict[str,Any]:
+        """Stop at the next page boundary while retaining completed pages."""
+        return await bridge.json('POST',f'/api/document-lab/jobs/{job_id}/cancel')
+
+    @mcp.tool(annotations=WRITE)
+    async def resume_document_pack_run(job_id:Id) -> dict[str,Any]:
+        """Resume paused, failed or cancelled packs without redoing completed pages."""
+        return await bridge.json('POST',f'/api/document-lab/jobs/{job_id}/resume')
+
+    @mcp.tool(annotations=READ)
+    async def get_document_pack_page(job_id:Id,document:Annotated[int,Field(ge=0,le=99)],page:Annotated[int,Field(ge=0,le=4)]) -> dict[str,Any]:
+        """Read page labels, table cells, relationships, generated values and capture geometry."""
+        return await bridge.json('GET',f'/api/document-lab/jobs/{job_id}/pages/{document}/{page}')
+
+    @mcp.tool(annotations=WRITE)
+    async def edit_document_pack_page(job_id:Id,document:Annotated[int,Field(ge=0,le=99)],page:Annotated[int,Field(ge=0,le=4)],changes:SampleEdit) -> dict[str,Any]:
+        """Save revision-checked label corrections or mark a page excluded. Changed boxes use rectangular masks."""
+        return await bridge.json('PUT',f'/api/document-lab/jobs/{job_id}/pages/{document}/{page}',changes)
+
+    @mcp.tool(annotations=WRITE)
+    async def regenerate_document_pack(job_id:Id,document:Annotated[int,Field(ge=0,le=99)]) -> dict[str,Any]:
+        """Regenerate all pages of one pack with fresh consistent values, retaining its layout family and split."""
+        return await bridge.json('POST',f'/api/document-lab/jobs/{job_id}/documents/{document}/regenerate')
+
+    @mcp.tool(annotations=READ)
+    async def read_sample_annotations(sample_id:Id) -> dict[str,Any]:
+        """Read revision and current labels of a completed template-generated sample."""
+        return await bridge.json('GET',f'/api/samples/{sample_id}/annotations')
+
+    @mcp.tool(annotations=WRITE)
+    async def edit_sample_annotations(sample_id:Id,changes:SampleEdit) -> dict[str,Any]:
+        """Save label corrections with optimistic revision checking or exclude the sample from future exports."""
+        return await bridge.json('PUT',f'/api/samples/{sample_id}/annotations',changes)
+
+    @mcp.tool(annotations=WRITE)
+    async def regenerate_document_sample(sample_id:Id) -> dict[str,Any]:
+        """Regenerate one completed template sample with a fresh seed, retaining the prior output folder."""
+        return await bridge.json('POST',f'/api/samples/{sample_id}/regenerate')
+
     @mcp.resource("dataforge://guide", mime_type="text/markdown")
     def guide() -> str:
         return (ROOT/"docs/mcp.md").read_text(encoding="utf-8")
@@ -440,7 +502,7 @@ def create_server(api_url="http://127.0.0.1:8000", *, port=8001, client=None):
     @mcp.resource("dataforge://schemas", mime_type="application/json")
     def schemas() -> str:
         return json.dumps({model.__name__: model.model_json_schema() for model in
-            (AssetRequest, RuleOptions, Region, Review, GenerationConfig, TextConfig, AnalysisRequest, SourceTable, InterpretRuleRequest, CanvasRequest, CanvasPreview, DiffusionRequest)})
+            (AssetRequest, RuleOptions, Region, Review, GenerationConfig, TextConfig, AnalysisRequest, SourceTable, InterpretRuleRequest, CanvasRequest, CanvasPreview, DiffusionRequest, InkAppearance, LabConfig, SampleEdit)})
 
     @mcp.resource("dataforge://templates", mime_type="application/json")
     async def templates_resource() -> str:

@@ -9,7 +9,7 @@ workflow. Optional local SD-Turbo asset previews are available; the full agent p
 **New here? Open the [How-to Catalog](HOW_TO_USE.md)** for feature-by-feature
 recipes, copyable inputs, controls, exports and troubleshooting.
 
-**MCP integration:** [52 typed tools and client setup](docs/mcp.md) expose
+**MCP integration:** [64 typed tools and client setup](docs/mcp.md) expose
 standalone signatures, stamps, seals, codes, text/portrait assets, templates,
 analysis and document/text dataset workflows over stdio or Streamable HTTP.
 Install the optional `requirements-mcp.txt`, keep DataForge running, then use
@@ -75,8 +75,7 @@ contain real PII and should be handled with your normal local disk controls.
 4. Open Generation studio, choose **100 samples**, seed 42, optional signature,
    seal and QR, and augmentation rates. Generate; watch the Job monitor.
 5. Inspect Dataset gallery previews and Quality dashboard. Cancel/resume jobs
-   at sample boundaries if needed. Current sample previews are read-only;
-   fix source fields and regenerate to correct annotations.
+   at sample boundaries if needed. Open a completed sample to edit labels, exclude it or regenerate that sample.
 6. In Export & history, choose YOLO, COCO or OCR JSON, review the results and
    acknowledge privacy limits, then **Build & download ZIP**.
 
@@ -87,6 +86,8 @@ records the observed run. These artifacts contain fictional data only.
 All generated images are streamed to disk; the UI paginates samples.
 
 ## Implemented
+
+- **Document lab:** authored multi-page invoices/forms, controlled capture/handwriting/mark rates, grouped dataset splits, consistent fields, table structure and editable labels. Existing gallery samples support label correction and single-sample regeneration. See [Document lab](docs/document-lab.md).
 
 - **Synthetic text datasets:** classification, NER, Q&A, instruction–response,
   conversations and augmentation in English, Spanish, French, German and Hindi.
@@ -137,7 +138,7 @@ Automated validation does not establish training readiness or statistical utilit
 Faker names can coincide with real names.
 
 Presidio, general layout/borderless-table/signature detection, neural restoration,
-sample annotation editing, LangGraph, FAISS/RAG, tabular synthesis,
+LangGraph, FAISS/RAG, tabular synthesis,
 AI image ingestion are **not implemented**.
 Local SD-Turbo portrait/seal/stamp artwork generation is optional; see [image generation](docs/image-generation.md).
 Their navigation pages state this explicitly. No agent/model activity is faked.

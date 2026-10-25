@@ -13,12 +13,14 @@ def main():
     args = parser.parse_args()
     os.environ.update(HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", HF_HUB_DISABLE_TELEMETRY="1")
     import torch
-    from diffusers import StableDiffusionPipeline
+    from diffusers import StableDiffusionPipeline,StableDiffusionImg2ImgPipeline
     request = json.loads((args.folder/"request.json").read_text(encoding="utf-8"))
     started = time.monotonic()
     torch.set_num_threads(4)
     # Load fp16 safetensors as float32 for this CPU. No pickle or remote code.
-    pipe = StableDiffusionPipeline.from_pretrained(str(args.model), local_files_only=True,
+    guided=request['kind']=='signature_artwork'
+    pipeline=StableDiffusionImg2ImgPipeline if guided else StableDiffusionPipeline
+    pipe = pipeline.from_pretrained(str(args.model), local_files_only=True,
         use_safetensors=True, variant="fp16", torch_dtype=torch.float32, low_cpu_mem_usage=True)
     pipe.to("cpu")
     pipe.enable_attention_slicing()
@@ -29,8 +31,12 @@ def main():
         (args.folder/"progress.json").write_text(json.dumps({"step": step+1}), encoding="utf-8")
         return kwargs
     with torch.inference_mode():
-        result = pipe(prompt=request["resolved_prompt"], height=512, width=512,
-            num_inference_steps=request["steps"], guidance_scale=0.0,
+        if guided:
+            from PIL import Image
+            with Image.open(args.folder/'guide.png') as opened:extra={'image':opened.convert('RGB'),'strength':.5}
+        else:extra={'height':512,'width':512}
+        result = pipe(prompt=request["resolved_prompt"], **extra,
+            num_inference_steps=max(2,request["steps"]) if guided else request['steps'], guidance_scale=0.0,
             generator=torch.Generator("cpu").manual_seed(request["seed"]),
             callback_on_step_end=progress)
     result.images[0].save(args.folder/"raw.png")
@@ -38,7 +44,8 @@ def main():
         "elapsed_seconds": round(time.monotonic()-started, 2), "torch": torch.__version__,
         "width": 512, "height": 512, "steps": request["steps"], "guidance_scale": 0.0,
         "prompt_tokens": token_count, "max_prompt_tokens": max_tokens,
-        "prompt_truncated": token_count > max_tokens}), encoding="utf-8")
+        "prompt_truncated": token_count > max_tokens,"pipeline":"img2img" if guided else "text2img",
+        "strength":.5 if guided else None}), encoding="utf-8")
 
 
 if __name__ == "__main__":

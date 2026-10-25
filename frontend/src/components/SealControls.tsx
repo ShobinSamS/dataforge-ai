@@ -3,6 +3,7 @@ import { post } from "../api";
 import type { Region, RuleOptions } from "../types";
 import InkOpacityControls from "./InkOpacityControls";
 import ColorControls from "./ColorControls";
+import { sealPresets, sealPreset } from "./sealPresets";
 
 export default function SealControls({
   field,
@@ -25,6 +26,7 @@ export default function SealControls({
     [busy, setBusy] = useState(false),
     [seed, setSeed] = useState(42);
   const previewRevision = useRef(0);
+  const [recipe, setRecipe] = useState("");
   const optionsKey = JSON.stringify(options);
   useEffect(() => {
     previewRevision.current++;
@@ -32,6 +34,7 @@ export default function SealControls({
     setError("");
   }, [field.id, field.rule, optionsKey]);
   const change = (patch: Partial<RuleOptions>) => {
+    setRecipe("");
     setPreview(null);
     setError("");
     set(
@@ -73,6 +76,33 @@ export default function SealControls({
       : options;
   return (
     <>
+      <p className="field-hint">
+        Start with a complete design, then edit its words and ink. Each seal
+        includes its border and lettering; no AI image generation is needed.
+      </p>
+      <label>
+        Seal reference layout
+        <select
+          value={recipe}
+          onChange={(e) => {
+            if (e.target.value) {
+              change(sealPreset(e.target.value));
+              setRecipe(e.target.value);
+            }
+          }}
+        >
+          <option value="">Keep current design / choose a preset…</option>
+          {Object.entries(sealPresets).map(([key, recipe]) => (
+            <option key={key} value={key}>
+              {recipe.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="field-hint">
+        Presets replace layout and wording settings. Your ink color and opacity
+        stay as selected.
+      </p>
       <label>
         Seal wording
         <select
@@ -84,212 +114,215 @@ export default function SealControls({
             })
           }
         >
-          <option value="random">Random wording per sample</option>
-          <option value="static">Static wording · same text each sample</option>
+          <option value="random">Generate all words for me</option>
+          <option value="static">Use my exact words in every image</option>
           <option value="custom">
-            Custom format · placeholders vary per sample
+            Edit wording · mix my words with generated details
           </option>
         </select>
       </label>
       <p className="field-hint">
-        Random mode varies fictional organizations, departments, people,
-        locations, dates and references. Static mode uses your saved wording. A
-        custom format controls where generated fields appear.
+        {mode === "random"
+          ? "Creates a different fictional organization and office details for each image."
+          : mode === "static"
+            ? "These exact words will appear in every image."
+            : "Edit the text below. Keep generated details where you want new words in each image."}
       </p>
-      <label>
-        Seal shape
-        <select
-          value={options.seal_style || "random"}
-          onChange={(e) =>
-            change({ seal_style: e.target.value as RuleOptions["seal_style"] })
-          }
-        >
-          {[
-            "random",
-            "ring",
-            "round",
-            "double_ring",
-            "oval",
-            "badge",
-            "square",
-            "rectangle",
-            "professional",
-            "form",
-            "dated",
-            "text",
-            "attestation",
-            "corporate",
-            "form_block",
-            "nameplate",
-          ].map((v) => (
-            <option
-              key={v}
-              value={v}
-              disabled={
-                (!!options.seal_artwork_id ||
-                  !!options.seal_artwork_ids?.length) &&
-                ![
-                  "random",
-                  "ring",
-                  "round",
-                  "double_ring",
-                  "oval",
-                  "badge",
-                  "corporate",
-                ].includes(v)
-              }
-            >
-              {v.replaceAll("_", " ")}
-            </option>
-          ))}
-        </select>
-      </label>
-      {(options.seal_artwork_id || !!options.seal_artwork_ids?.length) && (
-        <p className="field-hint">
-          Center artwork uses circular or oval layouts. Remove the selected
-          center artwork to use a block seal.
-        </p>
-      )}
-      <ColorControls
-        options={colorOptions}
-        set={change}
-        label="Seal ink"
-        seal
-      />
-      <label>
-        Seal border
-        <select
-          value={options.seal_border || "random"}
-          onChange={(e) =>
-            change({
-              seal_border: e.target.value as RuleOptions["seal_border"],
-            })
-          }
-        >
-          {[
-            "random",
-            "solid",
-            "double",
-            "dotted",
-            "dashed",
-            "serrated",
-            "rosettes",
-          ].map((v) => (
-            <option key={v}>{v}</option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Seal ornament
-        <select
-          value={options.seal_symbol || "random"}
-          onChange={(e) =>
-            change({
-              seal_symbol: e.target.value as RuleOptions["seal_symbol"],
-            })
-          }
-        >
-          {["random", "none", "star", "diamond", "rosette", "monogram"].map(
-            (v) => (
+      <details className="option-section">
+        <summary>Layout details · shape, border and decoration</summary>
+        <label>
+          Seal shape
+          <select
+            value={options.seal_style || "random"}
+            onChange={(e) =>
+              change({
+                seal_style: e.target.value as RuleOptions["seal_style"],
+              })
+            }
+          >
+            {[
+              "random",
+              "ring",
+              "round",
+              "double_ring",
+              "oval",
+              "badge",
+              "square",
+              "rectangle",
+              "professional",
+              "form",
+              "dated",
+              "text",
+              "attestation",
+              "corporate",
+              "form_block",
+              "nameplate",
+            ].map((v) => (
+              <option
+                key={v}
+                value={v}
+                disabled={
+                  (!!options.seal_artwork_id ||
+                    !!options.seal_artwork_ids?.length) &&
+                  ![
+                    "random",
+                    "ring",
+                    "round",
+                    "double_ring",
+                    "oval",
+                    "badge",
+                    "corporate",
+                  ].includes(v)
+                }
+              >
+                {v.replaceAll("_", " ")}
+              </option>
+            ))}
+          </select>
+        </label>
+        {(options.seal_artwork_id || !!options.seal_artwork_ids?.length) && (
+          <p className="field-hint">
+            Center artwork uses circular or oval layouts. Remove the selected
+            center artwork to use a block seal.
+          </p>
+        )}
+        <label>
+          Seal border
+          <select
+            value={options.seal_border || "random"}
+            onChange={(e) =>
+              change({
+                seal_border: e.target.value as RuleOptions["seal_border"],
+              })
+            }
+          >
+            {[
+              "random",
+              "solid",
+              "double",
+              "dotted",
+              "dashed",
+              "serrated",
+              "rosettes",
+            ].map((v) => (
               <option key={v}>{v}</option>
-            ),
-          )}
-        </select>
-      </label>
-      {options.seal_style === "corporate" && (
-        <>
-          <label>
-            Inner top arc
-            <input
-              maxLength={160}
-              value={options.seal_inner_top_text || ""}
-              onChange={(e) => change({ seal_inner_top_text: e.target.value })}
-            />
-          </label>
-          <label>
-            Inner bottom arc
-            <input
-              maxLength={160}
-              value={options.seal_inner_bottom_text || ""}
-              onChange={(e) =>
-                change({ seal_inner_bottom_text: e.target.value })
-              }
-            />
-          </label>
-          <label>
-            Center motif
-            <select
-              value={options.seal_center_motif || "none"}
-              onChange={(e) =>
-                change({
-                  seal_center_motif: e.target
-                    .value as RuleOptions["seal_center_motif"],
-                })
-              }
-            >
-              {["none", "shield", "rosette", "rays"].map((v) => (
+            ))}
+          </select>
+        </label>
+        <label>
+          Seal ornament
+          <select
+            value={options.seal_symbol || "random"}
+            onChange={(e) =>
+              change({
+                seal_symbol: e.target.value as RuleOptions["seal_symbol"],
+              })
+            }
+          >
+            {["random", "none", "star", "diamond", "rosette", "monogram"].map(
+              (v) => (
                 <option key={v}>{v}</option>
-              ))}
-            </select>
-          </label>
-          <p className="field-hint">
-            Inner arcs support the same placeholders in Random and Custom modes.
-            Static uses the exact wording. Motifs are generated geometric
-            designs.
-          </p>
-        </>
-      )}
-      {["attestation", "form_block"].includes(options.seal_style || "") && (
-        <>
-          <p className="field-hint">
-            Put each form row in the body as Label: value. Leave the value empty
-            for a blank dotted line. A REG NO: row appears beneath the heading.
-            Bottom text can also be a field.
-          </p>
-          <label>
-            Field value writing
-            <select
-              value={options.seal_field_writing || "printed"}
-              onChange={(e) =>
-                change({
-                  seal_field_writing: e.target.value as "printed" | "cursive",
-                })
-              }
-            >
-              <option value="printed">Printed</option>
-              <option value="cursive">English cursive</option>
-            </select>
-          </label>
-        </>
-      )}
-      {options.seal_style === "attestation" && (
-        <>
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={options.seal_embedded_signature || false}
-              onChange={(e) =>
-                change({ seal_embedded_signature: e.target.checked })
-              }
-            />
-            Add a generated signature inside the stamp
-          </label>
-          {options.seal_embedded_signature && (
+              ),
+            )}
+          </select>
+        </label>
+        {options.seal_style === "corporate" && (
+          <>
             <label>
-              Signing name (blank generates a name)
+              Inner top arc
               <input
-                maxLength={100}
-                value={options.seal_signer_name || ""}
-                onChange={(e) => change({ seal_signer_name: e.target.value })}
+                maxLength={160}
+                value={options.seal_inner_top_text || ""}
+                onChange={(e) =>
+                  change({ seal_inner_top_text: e.target.value })
+                }
               />
             </label>
-          )}
-          <p className="field-hint">
-            The stamp and embedded signature share one seal mask. Use separate
-            regions when you need separate seal and signature labels.
-          </p>
-        </>
-      )}
+            <label>
+              Inner bottom arc
+              <input
+                maxLength={160}
+                value={options.seal_inner_bottom_text || ""}
+                onChange={(e) =>
+                  change({ seal_inner_bottom_text: e.target.value })
+                }
+              />
+            </label>
+            <label>
+              Center motif
+              <select
+                value={options.seal_center_motif || "none"}
+                onChange={(e) =>
+                  change({
+                    seal_center_motif: e.target
+                      .value as RuleOptions["seal_center_motif"],
+                  })
+                }
+              >
+                {["none", "shield", "rosette", "rays"].map((v) => (
+                  <option key={v}>{v}</option>
+                ))}
+              </select>
+            </label>
+            <p className="field-hint">
+              Inner arcs support the same placeholders in Random and Custom
+              modes. Static uses the exact wording. Motifs are generated
+              geometric designs.
+            </p>
+          </>
+        )}
+        {["attestation", "form_block"].includes(options.seal_style || "") && (
+          <>
+            <p className="field-hint">
+              Put each form row in the body as Label: value. Leave the value
+              empty for a blank dotted line. A REG NO: row appears beneath the
+              heading. Bottom text can also be a field.
+            </p>
+            <label>
+              Field value writing
+              <select
+                value={options.seal_field_writing || "printed"}
+                onChange={(e) =>
+                  change({
+                    seal_field_writing: e.target.value as "printed" | "cursive",
+                  })
+                }
+              >
+                <option value="printed">Printed</option>
+                <option value="cursive">English cursive</option>
+              </select>
+            </label>
+          </>
+        )}
+        {options.seal_style === "attestation" && (
+          <>
+            <label className="check-row">
+              <input
+                type="checkbox"
+                checked={options.seal_embedded_signature || false}
+                onChange={(e) =>
+                  change({ seal_embedded_signature: e.target.checked })
+                }
+              />
+              Add a generated signature inside the stamp
+            </label>
+            {options.seal_embedded_signature && (
+              <label>
+                Signing name (blank generates a name)
+                <input
+                  maxLength={100}
+                  value={options.seal_signer_name || ""}
+                  onChange={(e) => change({ seal_signer_name: e.target.value })}
+                />
+              </label>
+            )}
+            <p className="field-hint">
+              The stamp and embedded signature share one seal mask. Use separate
+              regions when you need separate seal and signature labels.
+            </p>
+          </>
+        )}
+      </details>
       {mode === "static" && (
         <>
           <label>
@@ -328,17 +361,24 @@ export default function SealControls({
       )}
       {mode === "custom" && (
         <>
+          <p className="field-hint">
+            Type your own words below. A token such as {"{organization}"}{" "}
+            changes for each image; plain words stay the same. Clear a field to
+            leave that part empty.
+          </p>
           <label>
-            Top format
+            Company / top text
             <input
+              aria-label="Top format"
               maxLength={200}
               value={options.seal_top_format ?? "{organization}"}
               onChange={(e) => change({ seal_top_format: e.target.value })}
             />
           </label>
           <label>
-            Body format
+            Center text / form rows
             <textarea
+              aria-label="Body format"
               rows={4}
               maxLength={480}
               value={
@@ -349,50 +389,63 @@ export default function SealControls({
             />
           </label>
           <label>
-            Bottom format
+            Location / bottom text
             <input
+              aria-label="Bottom format"
               maxLength={200}
               value={options.seal_bottom_format ?? "{city} · {state}"}
               onChange={(e) => change({ seal_bottom_format: e.target.value })}
             />
           </label>
-          <p className="field-hint">
-            Placeholders:{" "}
-            {
-              "{organization}, {department}, {name}, {title}, {city}, {state}, {year}, {date}, {reference}, {number}"
-            }
-            . One body line per row, up to six. Reusing a placeholder repeats
-            its value inside the seal.
-          </p>
+          <details>
+            <summary>Available generated details</summary>
+            <p className="field-hint">
+              Placeholders:{" "}
+              {
+                "{organization}, {department}, {name}, {title}, {city}, {state}, {year}, {date}, {reference}, {number}"
+              }
+              . One body line per row, up to six. Reusing a placeholder repeats
+              its value inside the seal.
+            </p>
+          </details>
         </>
       )}
-      <label className="check-row">
-        <input
-          type="checkbox"
-          checked={options.seal_allow_repeated_words || false}
-          onChange={(e) =>
-            change({ seal_allow_repeated_words: e.target.checked })
-          }
-        />
-        Allow repeated words
-      </label>
-      <p className="field-hint">
-        Off: repeated words are rejected. Enable for matching top/bottom wording
-        or intentional repetition. Static mode controls whether the entire
-        wording repeats across samples.
-      </p>
-      <label>
-        Ink wear
-        <input
-          type="number"
-          min={0}
-          max={0.45}
-          step={0.01}
-          value={options.seal_wear ?? 0.08}
-          onChange={(e) => change({ seal_wear: Number(e.target.value) })}
-        />
-      </label>
-      <InkOpacityControls options={options} set={change} />
+      <ColorControls
+        options={colorOptions}
+        set={change}
+        label="Seal ink"
+        seal
+      />
+      <details className="option-section">
+        <summary>Ink finish and repeated words</summary>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={options.seal_allow_repeated_words || false}
+            onChange={(e) =>
+              change({ seal_allow_repeated_words: e.target.checked })
+            }
+          />
+          Allow repeated words
+        </label>
+        <p className="field-hint">
+          Off: repeated words are rejected. Enable for matching top/bottom
+          wording or intentional repetition. Static mode controls whether the
+          entire wording repeats across samples.
+        </p>
+        <label>
+          Ink wear
+          <input
+            type="number"
+            min={0}
+            max={0.45}
+            step={0.01}
+            value={options.seal_wear ?? 0.08}
+            onChange={(e) => change({ seal_wear: Number(e.target.value) })}
+          />
+        </label>
+        <InkOpacityControls options={options} set={change} />
+      </details>
       <button
         type="button"
         className="btn small"

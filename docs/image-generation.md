@@ -1,8 +1,10 @@
 # Local Stable Diffusion assets
 
 Open **Template library → Generate images** or **AI image studio** for offline SD-Turbo runs. The same controls appear
-under **Generate or select Stable Diffusion artwork** in portrait, seal and paper
-stamp regions. These controls are independent of the existing procedural engine.
+under **Optional AI image generation** in photo, signature and paper stamp
+regions. A seal field offers **Optional AI emblem · decoration only**; complete
+text seals are configured under **Seal design and ink**. These controls retain
+the existing procedural engine.
 
 ## Setup
 
@@ -158,3 +160,82 @@ the document asset engine and visually inspected. The seal's wording and the
 stamp's lettering/denomination came from the renderer. Tested libraries:
 PyTorch 2.14.1+cpu, Diffusers 0.35.2 and Accelerate 1.12.0. The model revision was
 `b261bac6fd2cf515557d5d0707481eafa0485ec2`.
+
+Signature image generation is now available as `kind=signature_artwork` (experimental). It uses transparent monochrome artwork and never claims exact lettering. See [document realism and signature trials](document-lab.md#stable-diffusion-trials).
+
+
+## Single signatures, text seals and recoloring
+
+Signature generation now uses `StableDiffusionImg2ImgPipeline` with a seeded
+procedural single-autograph guide and strength 0.5, rather than unconstrained
+text-to-image. At least two scheduler steps are configured (one denoising step
+at strength 0.5). Optional `signature_text` and `signature_style` control the
+guide. The guide image, style, text and hash are recorded. The model may alter
+lettering, so output transcription remains unverified.
+
+Postprocessing searches the guide area, keeps one spatial ink group, centers
+it on a transparent 512-square canvas and rejects dense or boundary-clipped
+results. This is a geometric check, not proof that an overlapping group contains
+one semantic autograph. Inspect the preview. Failed results are visible and no
+procedural replacement is silently used. Old signature sheets remain historical
+previews; generate a new run to use the guided path.
+
+Select **Full text seal · exact lettering** for complete text-based seals like
+the references. This uses the native seal renderer, never an image model. The
+reference layouts offer circular office/company rings, professional nameplates
+and attestation blocks. Random/static/custom wording, borders, symbols, ink
+wear and black/custom/random/mixed colors use the existing seal controls. This
+is distinct from **Seal emblem only · Stable Diffusion**, which supplies artwork
+for the middle of a seal. No model installation is required for full text seals.
+One complete seal is returned per transparent PNG, including in batches.
+
+`DiffusionRequest.kind=text_seal` takes its wording/colors in `seal_options`.
+API clients still supply a short `prompt` such as "Text seal"; it is only a
+record label. Native seals ignore Qwen mode and use procedural content planning.
+Their provenance records `rendering_engine=native-text-seal`; saved assets have
+`source=local_text_seal`, rather than claiming Stable Diffusion inference.
+
+For generated signature/emblem ink, request `ink` with `color_mode` equal to
+`black` (default), `manual`, or `random`; use `text_color` as a hex code and
+`color_palette` for seeded random choices. The same values can be applied later:
+
+```json
+{"color_mode":"manual","text_color":"#173574"}
+```
+
+POST this object to `/api/diffusion/jobs/{id}/recolor`. It creates a new completed
+job for one image or all completed images of a stopped batch, preserving the
+source job and saved assets. Alpha/shape stay identical; RGB changes to the
+chosen color. A multi-color seal is flattened to the selected single ink color
+when recolored. No model inference or new prompt is involved. The UI exposes
+**Change ink color without regenerating** for these previews. The MCP tool
+`recolor_generated_ink` uses the same contract; the catalog now has 64 tools.
+Transparent colored artwork retains its original alpha when reused as a signature
+or seal emblem in a document. Opaque scans still have their white background removed.
+
+
+### Verified guided trial · 2026-10-25
+
+A real two-image CPU run used the installed SD-Turbo revision, a surname-style
+single-autograph guide, seeds 3030/3031, two scheduler steps and strength 0.5.
+Both outputs passed geometric isolation and were visually inspected as one
+signature each, with ink densities 0.0700 and 0.0774. This small trial does not
+guarantee every seed or prompt. The resulting images were recolored from blue to
+red; their alpha planes matched byte-for-byte, and no model was rerun. Circular,
+professional and attestation text seals were also generated in two-image batches
+and recolored. Older free text-to-image signature previews are labelled as older
+generations in the gallery; new generation uses the guide automatically.
+
+A subsequent three-image run used Qwen descriptions and seeds 4242–4244 with
+mixed guides. All three completed, each with one isolated autograph on a
+transparent PNG, and were visually inspected. All eight corporate seal presets
+were checked through the live asset API in black and blue; their alpha planes
+matched across colors. The four native signature content modes were also checked.
+
+### Complete corporate seals and simpler controls
+
+In a seal field, open **Seal design and ink** and choose a **Seal reference layout**. The same presets are available in AI image studio under **Company / office seal · complete design**: a crest, a dated circle, a quality seal, recipient/product/batch and date/status forms, a company nameplate, a professional nameplate and attestation. These create exact lettering and borders together on transparent PNGs. The optional AI emblem generator remains available for center decoration. Presets replace layout and wording settings while retaining color and opacity. Existing designs stay unchanged until a preset is chosen.
+
+Normal content and appearance settings are shown first. Position, cleanup, custom patterns, handwriting designs, photo backgrounds, ink effects and natural-language rules are grouped in optional sections.
+
+Qwen still retries a repeated description. If a valid description repeats again, the batch continues with its distinct image seed, records `prompt_reused` and `prompt_warning`, and shows that notice in the preview. Invalid or unavailable model responses still produce an error; there is no substituted prompt. Existing failed batches can use **Resume remaining images** after the backend restarts.

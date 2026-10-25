@@ -3012,3 +3012,30 @@ td small {
   object-fit: contain;
   background: #f3f5f7;
 }
+
+/* Document pack generation and annotation review. */
+.document-lab .studio-grid { align-items:start; }
+.document-lab label, .annotation-editor label { display:flex; flex-direction:column; gap:6px; margin:12px 0; }
+.lab-page-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:12px; max-height:480px; overflow:auto; margin:18px 0; }
+.lab-page { padding:8px; border:1px solid #dbe5e9; border-radius:8px; background:#fff; text-align:left; font-size:12px; cursor:pointer; }
+.lab-page.selected { border:2px solid #07887b; }
+.lab-page img { display:block; width:100%; aspect-ratio:0.707; object-fit:contain; margin-bottom:8px; }
+.annotation-edit-list { max-height:420px; overflow:auto; margin:16px 0; }
+.annotation-edit-row { border:1px solid #dce5e9; border-radius:8px; padding:12px; margin-bottom:12px; }
+.annotation-box-inputs { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+.annotation-box-inputs input { min-width:0; width:100%; }
+.annotation-editor { margin-top:20px; border-top:1px solid #dce5e9; padding-top:16px; }
+.annotation-editor .annotated-preview { position:relative; }
+.annotation-editor .annotated-preview img { display:block; width:100%; }
+.annotation-editor .annotated-preview > div { position:absolute; border:1px solid #0a9989; pointer-events:none; background:rgba(0,145,128,.04); }
+.button-row { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+
+/* Progressive field settings: common choices first, optional details beneath. */
+.option-section { border: 1px solid var(--border, #dbe5e8); border-radius: 9px; padding: 10px 12px; margin: 12px 0; }
+.option-section > summary { cursor: pointer; font-weight: 600; color: var(--text, #173342); line-height: 1.5; }
+.option-section[open] > summary { margin-bottom: 12px; }
+.option-section label { display: block; margin: 12px 0; }
+.region-rule-controls > .field-hint:first-child { padding: 12px; background: #f1f8f7; border-radius: 8px; }
+
+.diffusion-panel .field-hint { color: #5c707b; padding: 4px 0; margin: 6px 0; line-height: 1.6; }
+.color-controls input[type="color"] { width: 64px; height: 34px; padding: 2px; border: 1px solid #c7d5db; border-radius: 5px; }

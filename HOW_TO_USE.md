@@ -83,7 +83,7 @@ DataForge does not install/start Ollama or download model weights automatically.
 | Settings | View runtime configuration and capability status | Available; edit `.env` to change server settings |
 | AI image studio | Generate local SD-Turbo portraits, seal emblems and stamp artwork | Optional model setup; [guide](docs/image-generation.md) |
 | Agent activity | Read agent integration status | Planned; Qwen text generation works independently |
-| MCP tools | Connect standard clients to 52 typed generation/template/dataset tools | Optional stdio / Streamable HTTP server; see [MCP setup](docs/mcp.md) |
+| MCP tools | Connect standard clients to 64 typed generation/template/dataset tools | Optional stdio / Streamable HTTP server; see [MCP setup](docs/mcp.md) |
 
 **Choose an engine for text:**
 
@@ -743,3 +743,7 @@ To add a paper stamp, draw a box, choose **Postage / revenue stamp**, then open
 For Received, Paid, Approved and other ink-only marks, choose the separate
 **Rubber stamp** field and its preset. Seals remain their own field. See the
 [stamp guide](docs/stamps.md) and [visual box guide](docs/visual-regions.md).
+
+## Document lab, capture effects and label correction
+
+Open **Document lab** for authored multi-page packs, controlled variation percentages and grouped splits. In **Generation studio**, choose capture presets and field relationships. Open a completed **Dataset gallery** sample to correct its labels, exclude it or regenerate one document. For generated signature artwork, choose **Fictional signature · experimental** in AI image studio; procedural signatures remain the default. See the [complete workflow](docs/document-lab.md).

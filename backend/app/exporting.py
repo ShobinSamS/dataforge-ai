@@ -30,7 +30,8 @@ def export_zip(job, samples, format_: str, output: Path) -> Path:
                 "training_ready":False,"validation_limitations":["Undetected PII may remain; review every source region",
                 "No OCR round-trip check","Barcode decoding not implemented","Statistical utility not evaluated"],
                 "count":len(samples),"split":"unsplit; create train/validation/test splits before training",
-                "label_provenance":"procedural-mask","mask_semantics":"ideal object support before blur"}
+                "label_provenance":"renderer and reviewed annotations" if any(a.get('reviewed') for s in samples for a in s.annotations) else "procedural-mask",
+                "mask_semantics":"Per-annotation semantics: ideal ink support or reviewed rectangular boxes"}
     with zipfile.ZipFile(output,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=1) as archive:
         archive.writestr("dataset.json",json.dumps(metadata,indent=2))
         archive.writestr("classes.json",json.dumps(CLASS_NAMES))

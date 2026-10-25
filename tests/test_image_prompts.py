@@ -59,6 +59,41 @@ def test_duplicate_prompt_is_retried_and_unavailable_qwen_has_no_fallback(monkey
     assert all(path!='/api/chat' for path,_ in calls)
 
 
+def test_repeated_valid_description_does_not_abort_a_batch(monkeypatch):
+    prompt='One invented autograph with a large looping initial and small connected cursive letters in black ink on white.'
+    calls=install_mock(monkeypatch,[{'prompt':prompt},{'prompt':prompt}])
+    result=image_prompts.generate_prompt('signature_artwork','One invented autograph',53,[prompt])
+    assert result['generated_prompt']==prompt
+    assert result['prompt_reused'] is True and 'different image seed' in result['prompt_warning']
+    assert len([path for path,_ in calls if path=='/api/chat'])==2
+    assert [path for path,_ in calls][-2:]==['/api/generate','/api/ps']
+
+
+def test_ten_image_run_completes_when_qwen_repeats_every_description(tmp_path,monkeypatch):
+    import time
+    prompt='One fictional adult woman with short dark hair, wearing a blue shirt and a neutral expression, realistic portrait.'
+    install_mock(monkeypatch,[{'prompt':prompt} for _ in range(19)])
+    model=tmp_path/'models'/'sd-turbo';model.mkdir(parents=True)
+    (model/'manifest.json').write_text(json.dumps({'repository':'stabilityai/sd-turbo','revision':'test'}))
+    monkeypatch.setattr(diffusion,'capabilities',lambda root:{'ready':True})
+    seeds=[]
+    def worker(folder,model,request,cancel,progress):
+        seeds.append(request['seed'])
+        Image.new('RGB',(512,512),'gray').save(folder/'raw.png')
+        return {'elapsed_seconds':.01,'peak_worker_rss_mb':100}
+    monkeypatch.setattr(diffusion,'run_worker',worker)
+    with TestClient(create_app(f"sqlite:///{tmp_path/'repeated.db'}",tmp_path,start_worker=False)) as client:
+        response=client.post('/api/diffusion/jobs',json={'kind':'portrait','prompt':'One fictional adult woman','prompt_mode':'qwen','count':10,'seed':42})
+        assert response.status_code==200,response.text
+        for _ in range(300):
+            job=client.get('/api/diffusion/jobs/'+response.json()['id']).json()
+            if job['status'] in diffusion.TERMINAL:break
+            time.sleep(.02)
+        assert job['status']=='completed' and job['completed']==10,job
+        assert seeds==list(range(42,52))
+        assert sum(bool(item.get('prompt_reused')) for item in job['items'])==9
+
+
 def test_invalid_and_cancelled_prompt_requests_never_produce_a_description(monkeypatch):
     install_mock(monkeypatch,['not JSON',{'prompt':'Too short'}])
     with pytest.raises(ValueError,match='valid varied'):image_prompts.generate_prompt('portrait','A fictional adult',1)

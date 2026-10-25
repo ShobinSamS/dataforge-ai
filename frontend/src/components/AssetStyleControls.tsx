@@ -28,63 +28,81 @@ export default function AssetStyleControls({
       rule_resolved_hash: "",
     });
   return (
-    <details className="font-controls">
-      <summary>Rendering style and cleanup</summary>
-      <label>
-        Remove original content
-        <select
-          value={options.cleanup_mode || "full_region"}
-          onChange={(e) =>
-            set({ cleanup_mode: e.target.value as RuleOptions["cleanup_mode"] })
-          }
-        >
-          <option value="full_region">Restore entire selected region</option>
-          <option value="ink_only">
-            Remove detected ink only (inspect for remnants)
-          </option>
-        </select>
-      </label>
-      <p className="field-hint">
-        Include all original strokes in the box. Full restoration removes the
-        selected pixels before replacement, including old seals. Textured
-        backgrounds are reconstructed approximately.
-      </p>
-      {[
-        "signature",
-        "seal",
-        "portrait",
-        "stamp",
-        "rubber_stamp",
-        "drawing",
-      ].includes(field.kind) && (
-        <>
-          <label>
-            Element background
-            <select
-              value={options.background_mode || "auto"}
-              onChange={(e) =>
-                set({
-                  background_mode: e.target
-                    .value as RuleOptions["background_mode"],
-                })
-              }
-            >
-              <option value="auto">Use canvas / original background</option>
-              <option value="solid">Solid color behind element</option>
-            </select>
-          </label>
-          {options.background_mode === "solid" && (
+    <details
+      className="font-controls"
+      open={["seal", "signature", "stamp", "rubber_stamp"].includes(field.kind)}
+    >
+      <summary>
+        {field.kind === "seal"
+          ? "Seal design and ink"
+          : field.kind === "signature"
+            ? "Signature appearance"
+            : field.kind === "stamp"
+              ? "Postage stamp design"
+              : field.kind === "rubber_stamp"
+                ? "Approval stamp design"
+                : "Background and writing style"}
+      </summary>
+      <details className="option-section">
+        <summary>Background and original content removal</summary>
+        <label>
+          Remove original content
+          <select
+            value={options.cleanup_mode || "full_region"}
+            onChange={(e) =>
+              set({
+                cleanup_mode: e.target.value as RuleOptions["cleanup_mode"],
+              })
+            }
+          >
+            <option value="full_region">Restore entire selected region</option>
+            <option value="ink_only">
+              Remove detected ink only (inspect for remnants)
+            </option>
+          </select>
+        </label>
+        <p className="field-hint">
+          Include all original strokes in the box. Full restoration removes the
+          selected pixels before replacement, including old seals. Textured
+          backgrounds are reconstructed approximately.
+        </p>
+        {[
+          "signature",
+          "seal",
+          "portrait",
+          "stamp",
+          "rubber_stamp",
+          "drawing",
+        ].includes(field.kind) && (
+          <>
             <label>
-              Element background color
-              <input
-                type="color"
-                value={options.background_color || "#ffffff"}
-                onChange={(e) => set({ background_color: e.target.value })}
-              />
+              Element background
+              <select
+                value={options.background_mode || "auto"}
+                onChange={(e) =>
+                  set({
+                    background_mode: e.target
+                      .value as RuleOptions["background_mode"],
+                  })
+                }
+              >
+                <option value="auto">Use canvas / original background</option>
+                <option value="solid">Solid color behind element</option>
+              </select>
             </label>
-          )}
-        </>
-      )}
+            {options.background_mode === "solid" && (
+              <label>
+                Element background color
+                <input
+                  type="color"
+                  value={options.background_color || "#ffffff"}
+                  onChange={(e) => set({ background_color: e.target.value })}
+                />
+              </label>
+            )}
+          </>
+        )}
+      </details>
       {field.kind === "drawing" && (
         <>
           <label>
@@ -123,6 +141,9 @@ export default function AssetStyleControls({
           >
             <option value="printed">Printed / match source</option>
             <option value="cursive">English cursive font</option>
+            <option value="handwritten">
+              Handwritten · varied letters and baseline
+            </option>
           </select>
         </label>
       )}
@@ -165,93 +186,99 @@ export default function AssetStyleControls({
               }
             >
               <option value="current">
-                Current · style chooses names or abbreviations
+                Automatic · names or initials to suit the design
               </option>
               <option value="name">Name only · all name words</option>
-              <option value="alphabet">
-                Alphabet only · 1–3 initials / letters
-              </option>
+              <option value="alphabet">Initials only · 1–3 letters</option>
               <option value="mixed">
-                Mixed · names, current and alphabet designs
+                Mix all · names, initials and automatic
               </option>
             </select>
           </label>
-          <label>
-            Signature style
-            <select
-              value={options.signature_style || "mixed"}
-              onChange={(e) =>
-                set({
-                  signature_style: e.target
-                    .value as RuleOptions["signature_style"],
-                })
-              }
-            >
-              <option value="mixed">Mixed signature styles per sample</option>
-              <option value="enclosed">
-                Pen strokes · broad enclosing return
-              </option>
-              <option value="interwoven">
-                Pen strokes · overlapping capitals and compact letters
-              </option>
-              <option value="gestural">
-                Pen strokes · abbreviated fast signing
-              </option>
-              <option value="stacked">
-                Pen strokes · two-line composition
-              </option>
-              <option value="initial_bridge">
-                Pen strokes · initials with a bridge and letter
-              </option>
-              <option value="terminal_loop">
-                Pen strokes · terminal oval or spiral
-              </option>
-              <option value="crossed">
-                Pen strokes · interlocked initials and crossbar
-              </option>
-              <option value="minimal">
-                Pen strokes · simple letter, initials or first name
-              </option>
-              <option value="surname">
-                Pen strokes · initial and compressed surname
-              </option>
-              <option value="split">
-                Pen strokes · initials with a small letter cluster
-              </option>
-              <option value="tall_initial">
-                Tall initials · small connected letters
-              </option>
-              <option value="compact">
-                Compact cursive · tight connected letters
-              </option>
-              <option value="angular">
-                Angular · initial and compressed surname
-              </option>
-              <option value="looped">
-                Large oval initials · connected return
-              </option>
-              <option value="sweeping">Sweeping crossbar and underline</option>
-              <option value="name">Full name · no flourish</option>
-              <option value="first_name">First name · no flourish</option>
-              <option value="single_letter">One letter · no flourish</option>
-              <option value="two_letters">Two letters · no flourish</option>
-              <option value="initials">Dotted initials · no flourish</option>
-              <option value="letter_wave">Letters → small wave → letter</option>
-              <option value="monogram">
-                Overlapping letters with a connected finish
-              </option>
-              <option value="flourish">
-                Name with a connected pen flourish
-              </option>
-            </select>
-          </label>
-          <p className="field-hint">
-            Mixed mode varies letter count, large initials, compressed cursive,
-            slant, loops and connected decoration. Some samples contain only
-            lettering. Waves and finishing curves join the letters instead of
-            adding independent scribbles. A literal rule supplies fictional
-            signing text; the selected style may abbreviate it.
-          </p>
+          <details className="option-section">
+            <summary>Signature design · loops, initials and flourishes</summary>
+            <label>
+              Signature style
+              <select
+                value={options.signature_style || "mixed"}
+                onChange={(e) =>
+                  set({
+                    signature_style: e.target
+                      .value as RuleOptions["signature_style"],
+                  })
+                }
+              >
+                <option value="mixed">Mixed signature styles per sample</option>
+                <option value="enclosed">
+                  Pen strokes · broad enclosing return
+                </option>
+                <option value="interwoven">
+                  Pen strokes · overlapping capitals and compact letters
+                </option>
+                <option value="gestural">
+                  Pen strokes · abbreviated fast signing
+                </option>
+                <option value="stacked">
+                  Pen strokes · two-line composition
+                </option>
+                <option value="initial_bridge">
+                  Pen strokes · initials with a bridge and letter
+                </option>
+                <option value="terminal_loop">
+                  Pen strokes · terminal oval or spiral
+                </option>
+                <option value="crossed">
+                  Pen strokes · interlocked initials and crossbar
+                </option>
+                <option value="minimal">
+                  Pen strokes · simple letter, initials or first name
+                </option>
+                <option value="surname">
+                  Pen strokes · initial and compressed surname
+                </option>
+                <option value="split">
+                  Pen strokes · initials with a small letter cluster
+                </option>
+                <option value="tall_initial">
+                  Tall initials · small connected letters
+                </option>
+                <option value="compact">
+                  Compact cursive · tight connected letters
+                </option>
+                <option value="angular">
+                  Angular · initial and compressed surname
+                </option>
+                <option value="looped">
+                  Large oval initials · connected return
+                </option>
+                <option value="sweeping">
+                  Sweeping crossbar and underline
+                </option>
+                <option value="name">Full name · no flourish</option>
+                <option value="first_name">First name · no flourish</option>
+                <option value="single_letter">One letter · no flourish</option>
+                <option value="two_letters">Two letters · no flourish</option>
+                <option value="initials">Dotted initials · no flourish</option>
+                <option value="letter_wave">
+                  Letters → small wave → letter
+                </option>
+                <option value="monogram">
+                  Overlapping letters with a connected finish
+                </option>
+                <option value="flourish">
+                  Name with a connected pen flourish
+                </option>
+              </select>
+            </label>
+            <p className="field-hint">
+              Mixed mode varies letter count, large initials, compressed
+              cursive, slant, loops and connected decoration. Some samples
+              contain only lettering. Waves and finishing curves join the
+              letters instead of adding independent scribbles. A literal rule
+              supplies fictional signing text; the selected style may abbreviate
+              it.
+            </p>
+          </details>
           <label>
             Signature boldness
             <input
@@ -278,7 +305,10 @@ export default function AssetStyleControls({
           >
             Use default boldness
           </button>
-          <InkOpacityControls options={options} set={set} />
+          <details className="option-section">
+            <summary>Ink finish and transparency</summary>
+            <InkOpacityControls options={options} set={set} />
+          </details>
         </>
       )}
       {field.kind === "seal" && (
