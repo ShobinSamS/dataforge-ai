@@ -25,6 +25,33 @@ def wait_job(client, id_):
     raise AssertionError('Preview did not finish')
 
 
+def test_progress_manifest_retries_transient_windows_file_lock(tmp_path,monkeypatch):
+    jobs=diffusion.DiffusionJobs(tmp_path);id_='a'*32;folder=tmp_path/'diffusion'/id_;folder.mkdir()
+    original=Path.replace;calls=[]
+    def replace(path,target):
+        calls.append(path)
+        if len(calls)<3:
+            error=PermissionError('Temporary file lock');error.winerror=32;raise error
+        return original(path,target)
+    monkeypatch.setattr(Path,'replace',replace);monkeypatch.setattr(diffusion.time,'sleep',lambda _:None)
+    try:
+        jobs.write({'id':id_,'status':'running'})
+        assert len(calls)==3 and json.loads((folder/'job.json').read_text())['status']=='running'
+    finally:jobs.close()
+
+
+def test_progress_manifest_does_not_hide_permanent_permissions(tmp_path,monkeypatch):
+    jobs=diffusion.DiffusionJobs(tmp_path);id_='a'*32;folder=tmp_path/'diffusion'/id_;folder.mkdir()
+    (folder/'job.json').write_text(json.dumps({'id':id_,'status':'queued'}));calls=[]
+    def locked(path,target):
+        calls.append(path);error=PermissionError('Persistent access denial');error.winerror=5;raise error
+    monkeypatch.setattr(Path,'replace',locked);monkeypatch.setattr(diffusion.time,'sleep',lambda _:None)
+    try:
+        with pytest.raises(PermissionError):jobs.write({'id':id_,'status':'running'})
+        assert len(calls)==8 and json.loads((folder/'job.json').read_text())['status']=='queued'
+    finally:jobs.close()
+
+
 def test_signature_image_pool_keeps_transcription_unverified(runtime):
     response=runtime.post('/api/diffusion/jobs',json={'kind':'signature_artwork','prompt':'One invented handwritten autograph','seed':37})
     assert response.status_code==200,response.text
@@ -36,6 +63,55 @@ def test_signature_image_pool_keeps_transcription_unverified(runtime):
     details=rendered.json()['metadata']['details']
     assert details['text']=='' and details['transcription_verified'] is False
     assert details['asset_provenance']['source']=='local_stable_diffusion'
+
+
+def test_signature_quality_retry_changes_seed_and_keeps_neighbor_seeds(runtime,monkeypatch,tmp_path):
+    original=diffusion.isolate_signature;checks=[]
+    def reject_first(image,box):
+        checks.append(box)
+        if len(checks)==1:raise diffusion.SignatureQualityError('Generated ink touches the image boundary')
+        return original(image,box)
+    monkeypatch.setattr(diffusion,'isolate_signature',reject_first)
+    job=runtime.post('/api/diffusion/jobs',json={'kind':'signature_artwork','prompt':'One invented autograph','count':2,'seed':42}).json()
+    result=wait_job(runtime,job['id'])
+    assert result['status']=='completed' and result['completed']==2,result
+    first,second=result['items']
+    assert first['requested_seed']==42 and first['seed']==1000045 and second['seed']==43
+    assert first['signature_attempts'][0]['seed']==42
+    assert first['metrics']['signature_rejected_attempts']==1
+    assert (tmp_path/'diffusion'/first['id']/'rejected'/'001'/'raw.png').is_file()
+    request=json.loads((tmp_path/'diffusion'/first['id']/'request.json').read_text())
+    assert request['seed']==first['seed']
+    saved=runtime.post('/api/diffusion/jobs/'+first['id']+'/save').json()
+    provenance=json.loads(saved['attribution'])
+    assert provenance['requested_seed']==42 and provenance['signature_attempts'][0]['seed']==42
+
+
+def test_signature_retry_budget_and_restart_resume_use_fresh_seeds(runtime,monkeypatch,tmp_path):
+    original=diffusion.isolate_signature
+    def reject(*args):raise diffusion.SignatureQualityError('Dense ink')
+    monkeypatch.setattr(diffusion,'isolate_signature',reject)
+    job=runtime.post('/api/diffusion/jobs',json={'kind':'signature_artwork','prompt':'One invented autograph','count':2,'seed':42}).json()
+    failed=wait_job(runtime,job['id'])
+    assert failed['status']=='failed' and failed['completed']==0
+    first=failed['items'][0]
+    assert [a['seed'] for a in first['signature_attempts']]==[42,1000045,2000048]
+    monkeypatch.setattr(diffusion,'isolate_signature',original)
+    with TestClient(create_app(f"sqlite:///{tmp_path/'quality-resume.db'}",tmp_path,start_worker=False)) as restarted:
+        assert restarted.post('/api/diffusion/jobs/'+job['id']+'/resume').status_code==200
+        result=wait_job(restarted,job['id'])
+        assert result['status']=='completed' and result['completed']==2,result
+        assert result['items'][0]['id']==first['id'] and result['items'][0]['seed']==3000051
+
+
+def test_signature_worker_errors_do_not_trigger_quality_retries(runtime,monkeypatch):
+    calls=[]
+    def broken(folder,model,request,*args):
+        calls.append(request['seed']);raise ValueError('Worker runtime failed')
+    monkeypatch.setattr(diffusion,'run_worker',broken)
+    job=runtime.post('/api/diffusion/jobs',json={'kind':'signature_artwork','prompt':'One invented autograph','count':2}).json()
+    failed=wait_job(runtime,job['id'])
+    assert failed['status']=='failed' and calls==[42] and 'Worker runtime failed' in failed['error']
 
 
 @pytest.fixture

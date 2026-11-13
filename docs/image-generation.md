@@ -226,6 +226,16 @@ professional and attestation text seals were also generated in two-image batches
 and recolored. Older free text-to-image signature previews are labelled as older
 generations in the gallery; new generation uses the guide automatically.
 
+The guide window selects a connected signature without clipping its strokes.
+A complete descender or return may extend beyond that window; the whole ink group
+is retained, with a bounded distance from the guide. Ink touching the actual
+image edge, dense ink and ambiguous groups are still rejected. A quality rejection
+automatically tries up to three image seeds per image. These seeds use a stride
+of 1,000,003 from `requested_seed`, so they do not reuse neighboring batch seeds.
+Each rejected attempt and its raw image, guide and request are retained locally.
+If all three fail, completed images stay available; resuming advances past the
+rejected seeds. Runtime, memory and prompt failures do not trigger these retries.
+
 A subsequent three-image run used Qwen descriptions and seeds 4242–4244 with
 mixed guides. All three completed, each with one isolated autograph on a
 transparent PNG, and were visually inspected. All eight corporate seal presets

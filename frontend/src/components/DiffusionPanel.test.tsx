@@ -61,6 +61,46 @@ const job = {
   image_url: "/api/diffusion/jobs/job1/image",
   metrics: { elapsed_seconds: 33, peak_worker_rss_mb: 4200 },
 };
+
+it("explains an automatic signature retry while retaining completed image progress", async () => {
+  const retrying = {
+    ...job,
+    id: "retry",
+    kind: "signature_artwork",
+    status: "running",
+    count: 100,
+    completed: 5,
+    stage: "retrying_signature",
+    signature_retry_round: 2,
+  };
+  vi.mocked(api).mockImplementation(async (path) =>
+    path.endsWith("capabilities")
+      ? { ready: true, available_ram_mb: 6000 }
+      : [retrying],
+  );
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: { queries: { retry: false, gcTime: 0 } },
+        })
+      }
+    >
+      <DiffusionPanel kind="signature_artwork" />
+    </QueryClientProvider>,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", {
+      name: /Single signature.*running.*5\/100 images/,
+    }),
+  );
+  expect(
+    await screen.findByText(/trying a fresh signature seed · attempt 2\/3/),
+  ).toBeTruthy();
+  expect(
+    screen.getByLabelText("Image batch progress").getAttribute("value"),
+  ).toBe("5");
+});
 function mount(
   onUse?: (asset: { id: string; preview_url: string }) => void,
   onUseMany?: (assets: { id: string; preview_url: string }[]) => void,

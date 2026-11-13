@@ -8,7 +8,7 @@ import pytest
 from PIL import Image,ImageDraw
 from fastapi.testclient import TestClient
 from backend.app.main import create_app
-from backend.app.signature_image import make_guide,isolate_signature
+from backend.app.signature_image import make_guide,isolate_signature,SignatureQualityError
 from backend.app import diffusion
 from backend.app.seal_artwork import artwork_alpha
 from backend.app.signatures import render_signature
@@ -43,6 +43,23 @@ def test_dense_and_clipped_ink_are_rejected_instead_of_returning_a_sheet():
     image=Image.new('RGB',(512,512),'white');ImageDraw.Draw(image).rectangle((80,190,430,320),fill='black')
     with pytest.raises(ValueError,match='dense|boundary'):isolate_signature(image,[90,200,420,310])
     with pytest.raises(ValueError,match='No isolated'):isolate_signature(Image.new('RGB',(512,512),'white'),[90,200,420,310])
+
+
+def test_complete_descender_outside_the_guide_window_is_not_cropped():
+    image=Image.new('RGB',(512,512),'white')
+    ImageDraw.Draw(image).line([(110,250),(140,195),(230,255),(365,210),(390,358)],fill='black',width=3)
+    out,metadata=isolate_signature(image,[110,195,390,315])
+    assert metadata['guide_window_expanded'] is True
+    x,y,w,h=metadata['source_crop']
+    assert y+h>=359 and x+w>=391
+    assert out.getchannel('A').getbbox() and metadata['signature_ink_groups']==1
+
+
+def test_a_connected_stroke_at_the_actual_image_edge_is_still_rejected():
+    image=Image.new('RGB',(512,512),'white')
+    ImageDraw.Draw(image).line([(0,250),(140,195),(230,255),(365,210)],fill='black',width=3)
+    with pytest.raises(SignatureQualityError,match='image boundary'):
+        isolate_signature(image,[110,195,390,315])
 
 
 def test_a_single_letter_guide_is_not_rejected_for_being_narrow(tmp_path):

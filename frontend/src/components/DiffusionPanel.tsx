@@ -39,6 +39,7 @@ type Job = {
   prompt_reused?: boolean;
   prompt_warning?: string;
   stage?: string;
+  signature_retry_round?: number;
   signature_guide?: { engine: string };
   seal?: { text: string; shape: string };
   metrics?: {
@@ -631,6 +632,9 @@ export default function DiffusionPanel({
             {job.status === "running" &&
               job.stage === "planning_prompt" &&
               " · Qwen is writing the image description"}
+            {job.status === "running" &&
+              job.stage === "retrying_signature" &&
+              ` · trying a fresh signature seed · attempt ${job.signature_retry_round || 1}/3`}
           </p>
           {(job.count || 1) > 1 && (
             <progress

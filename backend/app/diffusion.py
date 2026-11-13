@@ -28,7 +28,7 @@ from .portraits import store_portrait, portrait_background, portrait_metadata
 from .resources import CPU_LOCK
 from .schemas import Contract, RuleOptions,SignatureStyle
 from .image_prompts import generate_prompt, model_status
-from .signature_image import make_guide,isolate_signature
+from .signature_image import make_guide,isolate_signature,SignatureQualityError
 from .colors import choose_color
 
 Kind = Literal["portrait", "seal_artwork", "stamp_artwork", "signature_artwork", "text_seal"]
@@ -172,7 +172,16 @@ class DiffusionJobs:
     def write(self, job):
         path = self.folder/job["id"]/"job.json"
         temp = path.with_suffix(".tmp")
-        temp.write_text(json.dumps(job, indent=2), encoding="utf-8"); temp.replace(path)
+        raw=json.dumps(job,indent=2)
+        for attempt in range(8):
+            try:
+                temp.write_text(raw,encoding='utf-8');temp.replace(path)
+                return
+            except PermissionError as exc:
+                # Windows can briefly deny replacement of a file being read.
+                # Keep the old manifest intact and bound the retry to one second.
+                if getattr(exc,'winerror',None) not in {5,32,33} or attempt==7:raise
+                time.sleep(min(.025*2**attempt,.2))
 
     def get(self, id_):
         with self.lock:
@@ -188,6 +197,7 @@ class DiffusionJobs:
                 job['step']=active['step'] if active else 0
                 job['active_index']=active.get('batch_index') if active else None
                 job['stage']=active.get('stage') if active else None
+                job['signature_retry_round']=active.get('signature_retry_round') if active else None
             else:
                 job['completed']=int(job['status']=='completed')
                 job['count']=1
@@ -244,7 +254,8 @@ class DiffusionJobs:
                 self.run(child['id'])
                 if cancel.is_set():raise InterruptedError()
                 if self.jobs[child['id']]['status']!='completed':
-                    raise ValueError(f"Image {index+1} failed: {self.jobs[child['id']].get('error') or 'generation stopped'}. Completed images are kept; resume to retry.")
+                    reason=str(self.jobs[child['id']].get('error') or 'generation stopped').rstrip('. ')
+                    raise ValueError(f"Image {index+1} failed: {reason}. Completed images are kept; resume to retry.")
             self.update(id_,status='completed')
         except InterruptedError:self.update(id_,status='cancelled',error=None)
         except Exception as exc:self.update(id_,status='failed',error=str(exc)[:1000])
@@ -265,6 +276,46 @@ class DiffusionJobs:
     def update(self, id_, **patch):
         with self.lock:
             self.jobs[id_].update(patch); self.write(self.jobs[id_])
+
+    def signature_image(self, job, folder, cancel):
+        """Retry only image-quality rejections, keeping every actual seed."""
+        id_=job['id'];base=job.get('requested_seed',job['seed'])
+        rejected=list(job.get('signature_attempts',[]))
+        for retry in range(3):
+            if cancel.is_set():raise InterruptedError()
+            if psutil.virtual_memory().available/1024**2<4500:
+                raise ValueError('Free at least 4.5 GB RAM before image generation; completed images are kept')
+            # A stride larger than the 100-image batch avoids reusing the next
+            # image's normal seed. Resume advances past all recorded rejections.
+            seed=(base+len(rejected)*1000003)%(2**31)
+            guide=make_guide(folder,seed,job.get('signature_text',''),job.get('signature_style','mixed'))
+            self.update(id_,seed=seed,requested_seed=base,signature_guide=guide,
+                        signature_retry_round=retry+1,step=0,
+                        stage='retrying_signature' if rejected else 'generating_image')
+            current=self.get(id_)
+            (folder/'request.json').write_text(json.dumps(current),encoding='utf-8')
+            metrics=run_worker(folder,self.root/'models'/'sd-turbo',current,cancel,
+                               lambda step:self.update(id_,step=min(step,current['steps'])))
+            if cancel.is_set():raise InterruptedError()
+            with Image.open(folder/'raw.png') as opened:
+                if opened.size!=(512,512):raise ValueError('Worker returned an unexpected image size')
+                image=opened.convert('RGBA')
+            try:
+                image,check=isolate_signature(image,guide['guide_bbox'])
+            except SignatureQualityError as exc:
+                if cancel.is_set():raise InterruptedError()
+                archive=folder/'rejected'/f'{len(rejected)+1:03d}';archive.mkdir(parents=True,exist_ok=True)
+                for name in ('raw.png','guide.png','request.json','result.json'):
+                    if (folder/name).is_file():shutil.copyfile(folder/name,archive/name)
+                rejected.append({'seed':seed,'reason':str(exc),'guide':guide,
+                                 'raw_sha256':hashlib.sha256((folder/'raw.png').read_bytes()).hexdigest(),
+                                 'files':str(archive.relative_to(folder)).replace('\\','/')})
+                self.update(id_,signature_attempts=rejected,last_signature_error=str(exc))
+                if retry==2:
+                    raise SignatureQualityError('Three signature attempts failed the quality check; resuming will try fresh seeds') from exc
+                continue
+            metrics.update(check,signature_rejected_attempts=len(rejected))
+            return image,metrics
 
     def run(self, id_):
         cancel = self.cancels[id_]; acquired = False; folder = self.folder/id_
@@ -308,23 +359,22 @@ class DiffusionJobs:
                 raise ValueError('Free at least 4.5 GB RAM before image generation; the generated prompt is kept for resume')
             self.update(id_,stage='generating_image')
             if job['kind']=='signature_artwork':
-                guide=make_guide(folder,job['seed'],job.get('signature_text',''),job.get('signature_style','mixed'))
-                self.update(id_,signature_guide=guide)
-            metrics = run_worker(folder, self.root/"models"/"sd-turbo", job, cancel,
-                                 lambda step: self.update(id_, step=min(step, job["steps"])))
-            if cancel.is_set(): raise InterruptedError()
-            with Image.open(folder/"raw.png") as opened:
-                if opened.size != (512, 512): raise ValueError("Worker returned an unexpected image size")
-                image = opened.convert("RGBA")
+                image,metrics=self.signature_image(job,folder,cancel)
+                job=self.get(id_)
+            else:
+                metrics = run_worker(folder, self.root/"models"/"sd-turbo", job, cancel,
+                                     lambda step: self.update(id_, step=min(step, job["steps"])))
+                if cancel.is_set(): raise InterruptedError()
+                with Image.open(folder/"raw.png") as opened:
+                    if opened.size != (512, 512): raise ValueError("Worker returned an unexpected image size")
+                    image = opened.convert("RGBA")
             # Emblem transparency comes from the dark ink, retaining antialiasing.
-            if job['kind']=='signature_artwork':
-                image,check=isolate_signature(image,guide['guide_bbox']);metrics.update(check)
-            elif job["kind"] == "seal_artwork":
+            if job["kind"] == "seal_artwork":
                 from PIL import ImageOps
                 alpha = ImageOps.invert(ImageOps.grayscale(image)).point(lambda p: max(0, min(255, (p-30)*255//190)))
                 if alpha.getbbox() is None: raise ValueError("Generated emblem has no visible ink; try another prompt or seed")
                 image = Image.new("RGBA", image.size, "black"); image.putalpha(alpha)
-            elif job["background"] != "preserve":
+            elif job['kind']!='signature_artwork' and job["background"] != "preserve":
                 image = portrait_background(image, RuleOptions(portrait_background=job["background"], portrait_background_color=job["background_color"]), job["seed"])
             if job['kind'] in {'signature_artwork','seal_artwork'}:
                 image,ink=colorize(image,InkAppearance.model_validate(job.get('ink',{})),job['seed']);metrics['ink_color']=ink
@@ -377,7 +427,7 @@ class DiffusionJobs:
                 shutil.copyfile(self.folder/item['id']/'raw.png',folder/'raw.png')
                 for name in ('guide.png',):
                     if (self.folder/item['id']/name).exists():shutil.copyfile(self.folder/item['id']/name,folder/name)
-                provenance={k:item[k] for k in ('generated_prompt','resolved_prompt','prompt_seed','prompt_engine','prompt_model','prompt_model_digest','signature_guide','seal','rendering_engine') if k in item}
+                provenance={k:item[k] for k in ('generated_prompt','resolved_prompt','prompt_seed','prompt_engine','prompt_model','prompt_model_digest','signature_guide','requested_seed','signature_attempts','seal','rendering_engine') if k in item}
                 metrics={**item.get('metrics',{}),'ink_color':ink,'recolor_only':True,'model_inference':False,'elapsed_seconds':0,'image_wall_seconds':0,'peak_worker_rss_mb':0}
                 self.update(child['id'],**provenance,status='completed',step=child['steps'],metrics=metrics,sha256=hashlib.sha256((folder/'image.png').read_bytes()).hexdigest(),
                     image_url=f'/api/diffusion/jobs/{child["id"]}/image',raw_image_url=f'/api/diffusion/jobs/{child["id"]}/image?raw=true')
@@ -407,7 +457,7 @@ class DiffusionJobs:
                 native=job['kind']=='text_seal'
                 asset = store_portrait(image.copy(), self.root, source="local_text_seal" if native else "local_stable_diffusion",
                     license_note="Locally rendered fictional text seal; no image model used" if native else "SD-Turbo generated image; see the model license for permitted use",
-                    attribution=json.dumps({k:job[k] for k in ("model", "revision", "source_url", "license_url", "kind", "prompt", "resolved_prompt", "seed", "steps", "sha256",'prompt_mode','generated_prompt','prompt_seed','prompt_engine','prompt_model','prompt_model_digest','prompt_reused','prompt_warning','ink','signature_guide','seal','seal_options','source_job_id','rendering_engine','metrics') if k in job}))
+                    attribution=json.dumps({k:job[k] for k in ("model", "revision", "source_url", "license_url", "kind", "prompt", "resolved_prompt", "seed", "steps", "sha256",'prompt_mode','generated_prompt','prompt_seed','prompt_engine','prompt_model','prompt_model_digest','prompt_reused','prompt_warning','ink','signature_guide','requested_seed','signature_attempts','seal','seal_options','source_job_id','rendering_engine','metrics') if k in job}))
             self.update(id_, asset=asset)
             return asset
 
